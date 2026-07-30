@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://duahqx2n475yj"]
+
+[ext_resource type="Script" uid="uid://bteyp40rcv3c6" path="res://base_compositor_effect.gd" id="1_jjgbg"]
+[ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://wave_transformer.gd" id="2_bo1nx"]
+
+[sub_resource type="Environment" id="Environment_duk7s"]
+background_mode = 1
+background_color = Color(0.12396323, 0.15677339, 0.17969939, 1)
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_7u77a"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("1_jjgbg")
+metadata/_custom_type_script = "uid://bteyp40rcv3c6"
+
+[sub_resource type="Compositor" id="Compositor_buhqs"]
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_7u77a")])
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bo1nx"]
+diffuse_mode = 1
+disable_ambient_light = true
+disable_fog = true
+disable_specular_occlusion = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_duk7s"]
+material = SubResource("StandardMaterial3D_bo1nx")
+
+[node name="Main" type="Node3D" unique_id=552659395]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1520156418]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.255637)
+fov = 60.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1821228915]
+environment = SubResource("Environment_duk7s")
+compositor = SubResource("Compositor_buhqs")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=184254226]
+transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479, 0.610791, 0.7394161, -0.119184986, 0.6626149, 0, 1.2054999, 0)
+
+[node name="Ball" type="MeshInstance3D" parent="." unique_id=181125635]
+mesh = SubResource("SphereMesh_duk7s")
+script = ExtResource("2_bo1nx")
+amplitude = 1.5
