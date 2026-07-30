@@ -21,6 +21,13 @@ window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[file_customization]
+
+folder_colors={
+"res://Effects/": "red",
+"res://Effects/Motion Blur/": "gray"
+}
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

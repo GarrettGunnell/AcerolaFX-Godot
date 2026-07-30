@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://duahqx2n475yj"]
 
-[ext_resource type="Script" uid="uid://bteyp40rcv3c6" path="res://base_compositor_effect.gd" id="1_jjgbg"]
+[ext_resource type="Script" uid="uid://djbl2vbr3jkoy" path="res://Effects/Motion Blur/motion_blur_effect.gd" id="1_bo1nx"]
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://wave_transformer.gd" id="2_bo1nx"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
@@ -14,8 +14,8 @@ enabled = true
 effect_callback_type = 4
 needs_motion_vectors = true
 needs_normal_roughness = true
-script = ExtResource("1_jjgbg")
-metadata/_custom_type_script = "uid://bteyp40rcv3c6"
+script = ExtResource("1_bo1nx")
+metadata/_custom_type_script = "uid://djbl2vbr3jkoy"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
 compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx")])
@@ -34,7 +34,7 @@ height = 0.5
 [node name="Main" type="Node3D" unique_id=552659395]
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1520156418]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.59)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.03)
 fov = 60.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1821228915]
@@ -47,5 +47,6 @@ transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479
 [node name="Ball" type="MeshInstance3D" parent="." unique_id=181125635]
 mesh = SubResource("SphereMesh_duk7s")
 script = ExtResource("2_bo1nx")
-x_amplitude = 0.0
+x_frequency = 4.0
+x_amplitude = 1.5
 y_amplitude = 0.0
