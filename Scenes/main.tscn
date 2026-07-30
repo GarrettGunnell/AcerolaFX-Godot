@@ -7,18 +7,18 @@
 background_mode = 1
 background_color = Color(0.12396323, 0.15677339, 0.17969939, 1)
 
-[sub_resource type="CompositorEffect" id="CompositorEffect_7u77a"]
+[sub_resource type="CompositorEffect" id="CompositorEffect_bo1nx"]
 resource_local_to_scene = false
 resource_name = ""
 enabled = true
 effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
+needs_motion_vectors = true
+needs_normal_roughness = true
 script = ExtResource("1_jjgbg")
 metadata/_custom_type_script = "uid://bteyp40rcv3c6"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_7u77a")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bo1nx"]
 diffuse_mode = 1
@@ -28,11 +28,13 @@ disable_specular_occlusion = true
 
 [sub_resource type="SphereMesh" id="SphereMesh_duk7s"]
 material = SubResource("StandardMaterial3D_bo1nx")
+radius = 0.25
+height = 0.5
 
 [node name="Main" type="Node3D" unique_id=552659395]
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1520156418]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.255637)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.59)
 fov = 60.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1821228915]
@@ -45,4 +47,5 @@ transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479
 [node name="Ball" type="MeshInstance3D" parent="." unique_id=181125635]
 mesh = SubResource("SphereMesh_duk7s")
 script = ExtResource("2_bo1nx")
-amplitude = 1.5
+x_amplitude = 0.0
+y_amplitude = 0.0
