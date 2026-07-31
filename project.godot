@@ -27,7 +27,8 @@ folder_colors={
 "res://Effects/": "red",
 "res://Effects/Blur/": "gray",
 "res://Effects/Debug/": "gray",
-"res://Effects/Motion Blur/": "gray"
+"res://Effects/Motion Blur/": "gray",
+"res://Ignored/": "pink"
 }
 
 [physics]
