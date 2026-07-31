@@ -16,7 +16,6 @@ var nearest_sampler : RID;
 func _init():
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
 	needs_motion_vectors = true;
-	needs_normal_roughness = true;
 	
 	rd = RenderingServer.get_rendering_device();
 	if not rd: return;

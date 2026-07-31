@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://duahqx2n475yj"]
 
-[ext_resource type="Script" uid="uid://djbl2vbr3jkoy" path="res://Effects/Motion Blur/motion_blur_effect.gd" id="1_bo1nx"]
+[ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="1_bo1nx"]
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://wave_transformer.gd" id="2_bo1nx"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
@@ -13,9 +13,9 @@ resource_name = ""
 enabled = true
 effect_callback_type = 4
 needs_motion_vectors = true
-needs_normal_roughness = true
+needs_normal_roughness = false
 script = ExtResource("1_bo1nx")
-metadata/_custom_type_script = "uid://djbl2vbr3jkoy"
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
 compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx")])
