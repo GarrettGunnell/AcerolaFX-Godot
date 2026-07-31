@@ -3,8 +3,7 @@ extends CompositorEffect
 class_name AcerolaFX_Blur
 
 
-@export_tool_button("Recompile", "Callable") var recompile_action = compile_shader;
-
+@export var kernel_size : int = 1;
 
 var rd : RenderingDevice;
 var shader : RID;
@@ -12,6 +11,7 @@ var pipeline : RID;
 
 var nearest_sampler : RID;
 
+@export_tool_button("Recompile", "Callable") var recompile_action = compile_shader;
 
 func _init():
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
@@ -45,11 +45,11 @@ func _render_callback(effect_callback_type: int, render_data: RenderData) -> voi
 	var z_groups : int = 1;
 	
 	# Push constant
-	var push_constant : PackedFloat32Array = PackedFloat32Array();
+	var push_constant : PackedInt32Array = PackedInt32Array();
 	push_constant.push_back(render_size.x);
 	push_constant.push_back(render_size.y);
-	push_constant.push_back(0.0);
-	push_constant.push_back(0.0);
+	push_constant.push_back(kernel_size);
+	push_constant.push_back(0);
 	
 	var color_buffer : RID = render_scene_buffers.get_color_layer(0);
 	var motion_vector_buffer : RID = render_scene_buffers.get_velocity_layer(0);
@@ -136,8 +136,9 @@ layout(rgba16f, set = 0, binding = 2) uniform image2D motion_image;
 
 // Our push constant
 layout(push_constant, std430) uniform Params {
-	vec2 raster_size;
-	vec2 reserved;
+	ivec2 raster_size;
+	int kernel_size;
+	int reserved;
 } params;
 
 // The code we want to execute in each invocation
@@ -156,11 +157,28 @@ void main() {
 	
 	float raw_depth = texture(depth_image, uv).r;
 
+	int kernel_size = params.kernel_size;
 	
-	vec4 color_output = color;
+	int samples = 1;
+	vec4 color_sum = color;
+	for (int x = -kernel_size; x <= kernel_size; ++x) {
+		for (int y = -kernel_size; y <= kernel_size; ++y) {
+			if (x == 0 && y == 0) continue;
+			
+			ivec2 sample_pos = thread_id + ivec2(x, y);
+			
+			sample_pos = clamp(sample_pos, ivec2(0), size);
+			
+			color_sum += imageLoad(color_image, sample_pos);
+			samples += 1;
+		}
+	}
+	
+	
+	vec4 color_output = color_sum / vec4(samples);
 	vec4 depth_output = vec4(raw_depth);
 	vec4 motion_output = abs(motion);
 
-	imageStore(color_image, thread_id, motion_output);
+	imageStore(color_image, thread_id, color_output);
 }
 """

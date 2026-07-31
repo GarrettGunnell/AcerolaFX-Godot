@@ -15,6 +15,7 @@ effect_callback_type = 4
 needs_motion_vectors = true
 needs_normal_roughness = false
 script = ExtResource("1_bo1nx")
+kernel_size = 10
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
@@ -48,5 +49,5 @@ transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479
 mesh = SubResource("SphereMesh_duk7s")
 script = ExtResource("2_bo1nx")
 x_frequency = 4.0
-x_amplitude = 1.5
+x_amplitude = 0.0
 y_amplitude = 0.0
