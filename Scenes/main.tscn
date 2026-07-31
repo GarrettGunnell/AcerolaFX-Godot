@@ -12,10 +12,10 @@ resource_local_to_scene = false
 resource_name = ""
 enabled = true
 effect_callback_type = 4
-needs_motion_vectors = true
+needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("1_bo1nx")
-kernel_size = 10
+kernel_size = 5
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
