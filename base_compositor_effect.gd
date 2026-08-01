@@ -3,8 +3,7 @@ extends CompositorEffect
 class_name BaseCompositorEffect
 
 
-@export_tool_button("Recompile", "Callable") var recompile_action = compile_shader;
-
+@export var disabled : bool = false;
 
 var rd : RenderingDevice;
 var shader : RID;
@@ -12,8 +11,13 @@ var pipeline : RID;
 
 var nearest_sampler : RID;
 
+@export_tool_button("Recompile", "Callable") var recompile_action = compile_shader;
+
 
 func _init():
+	enabled = true;
+	
+	# ADJUST ACCORDINGLY
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
 	needs_motion_vectors = true;
 	needs_normal_roughness = true;
@@ -23,14 +27,16 @@ func _init():
 	
 	compile_shader();
 	
-	# Create nearest neighbor sampler state
+	# Create nearest neighbor sampler state, adjust accordingly
 	var sampler_state : RDSamplerState = RDSamplerState.new();
 	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_NEAREST;
 	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_NEAREST;
 	nearest_sampler = rd.sampler_create(sampler_state);
 
 
-func _render_callback(effect_callback_type: int, render_data: RenderData) -> void:
+func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
+	if disabled: return;
+	
 	if not rd: return;
 	if not pipeline.is_valid(): return;
 	
@@ -41,8 +47,8 @@ func _render_callback(effect_callback_type: int, render_data: RenderData) -> voi
 	if render_size.x == 0 and render_size.y == 0: return;
 	
 	# Thread groups
-	var x_groups : int = (render_size.x - 1) / 8 + 1;
-	var y_groups : int = (render_size.y - 1) / 8 + 1;
+	var x_groups : int = int(float(render_size.x - 1) / 8 + 1);
+	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
 	var z_groups : int = 1;
 	
 	# Push constant
@@ -123,6 +129,18 @@ func _notification(what):
 		
 		if nearest_sampler.is_valid():
 			rd.free_rid(nearest_sampler);
+
+
+# Removes serialized variable bloat
+func _validate_property(property: Dictionary):
+	if property.name == "enabled":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "effect_callback_type":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_motion_vectors":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_normal_roughness":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
 
 
 const template_shader: String = """

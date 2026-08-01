@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://duahqx2n475yj"]
 
 [ext_resource type="Script" uid="uid://cy6w43y8cmus" path="res://Effects/Debug/acerolafx_image_blit.gd" id="1_bo1nx"]
+[ext_resource type="Script" uid="uid://bteyp40rcv3c6" path="res://base_compositor_effect.gd" id="1_jjgbg"]
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://wave_transformer.gd" id="2_bo1nx"]
 [ext_resource type="Texture2D" uid="uid://cfbgrs3k54qfm" path="res://Ignored/fuji-2.png" id="2_jjvhh"]
-[ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
 background_mode = 1
@@ -12,7 +12,7 @@ background_color = Color(0.12396323, 0.15677339, 0.17969939, 1)
 [sub_resource type="CompositorEffect" id="CompositorEffect_bo1nx"]
 resource_local_to_scene = false
 resource_name = ""
-enabled = true
+enabled = false
 effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
@@ -25,10 +25,10 @@ resource_local_to_scene = false
 resource_name = ""
 enabled = true
 effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
+needs_motion_vectors = true
+needs_normal_roughness = true
+script = ExtResource("1_jjgbg")
+metadata/_custom_type_script = "uid://bteyp40rcv3c6"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
 compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_8gbba")])

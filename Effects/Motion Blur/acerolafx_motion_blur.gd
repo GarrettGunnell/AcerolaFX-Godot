@@ -29,7 +29,7 @@ func _init():
 	nearest_sampler = rd.sampler_create(sampler_state);
 
 
-func _render_callback(effect_callback_type: int, render_data: RenderData) -> void:
+func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
 	if not rd: return;
 	if not pipeline.is_valid(): return;
 	
@@ -40,8 +40,8 @@ func _render_callback(effect_callback_type: int, render_data: RenderData) -> voi
 	if render_size.x == 0 and render_size.y == 0: return;
 	
 	# Thread groups
-	var x_groups : int = (render_size.x - 1) / 8 + 1;
-	var y_groups : int = (render_size.y - 1) / 8 + 1;
+	var x_groups : int = int(float(render_size.x - 1) / 8 + 1);
+	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
 	var z_groups : int = 1;
 	
 	# Push constant
