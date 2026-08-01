@@ -17,7 +17,6 @@ var pong_size : Vector2i = Vector2i.ZERO;
 
 func _init():
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
-	needs_motion_vectors = true;
 	
 	rd = RenderingServer.get_rendering_device();
 	if not rd: return;
@@ -155,9 +154,6 @@ void main() {
 	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
 
 	vec4 color = imageLoad(color_image, thread_id);
-    vec4 motion = imageLoad(motion_image, thread_id); 
-	
-	float raw_depth = texture(depth_image, uv).r;
 
 	int kernel_size = params.kernel_size;
 	
@@ -176,10 +172,7 @@ void main() {
 		}
 	}
 	
-	
 	vec4 color_output = color_sum / vec4(samples);
-	vec4 depth_output = vec4(raw_depth);
-	vec4 motion_output = abs(motion);
 
 	imageStore(color_image, thread_id, color_output);
 }
