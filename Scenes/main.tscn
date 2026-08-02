@@ -17,9 +17,8 @@ effect_callback_type = 4
 needs_motion_vectors = true
 needs_normal_roughness = true
 script = ExtResource("1_bo1nx")
+disabled = null
 source_texture = ExtResource("2_jjvhh")
-repeat_mode = 2
-offset = Vector2(-0.505, -0.325)
 metadata/_custom_type_script = "uid://cy6w43y8cmus"
 
 [sub_resource type="CompositorEffect" id="CompositorEffect_jjvhh"]
@@ -30,6 +29,7 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
+kernel_size = 6
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]

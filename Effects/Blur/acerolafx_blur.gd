@@ -2,7 +2,7 @@
 extends CompositorEffect
 class_name AcerolaFX_Blur
 
-
+@export var disabled : bool = false;
 @export var kernel_size : int = 1;
 
 var rd : RenderingDevice;
@@ -31,6 +31,7 @@ func _init():
 
 
 func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
+	if disabled: return;
 	if not rd: return;
 	if not pipeline.is_valid(): return;
 	
@@ -125,6 +126,18 @@ func _notification(what):
 		
 		if pong_texture.is_valid():
 			rd.free_rid(pong_texture);
+
+
+# Removes serialized variable bloat
+func _validate_property(property: Dictionary):
+	if property.name == "enabled":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "effect_callback_type":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_motion_vectors":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_normal_roughness":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
 
 
 const template_shader: String = """

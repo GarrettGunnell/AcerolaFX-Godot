@@ -2,6 +2,7 @@
 extends CompositorEffect
 class_name AcerolaFX_ImageBlit
 
+@export var disabled : bool = false;
 @export var source_texture : Texture2D;
 @export var nearest_neighbor : bool = false;
 @export var zoom : float = 1.0;
@@ -131,6 +132,18 @@ func _notification(what):
 			rd.free_rid(nearest_sampler);
 		if linear_sampler.is_valid():
 			rd.free_rid(linear_sampler);
+
+
+# Removes serialized variable bloat
+func _validate_property(property: Dictionary):
+	if property.name == "enabled":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "effect_callback_type":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_motion_vectors":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
+	if property.name == "needs_normal_roughness":
+		property.usage = PROPERTY_USAGE_NO_EDITOR
 
 
 const template_shader: String = """
