@@ -386,7 +386,11 @@ void main() {
 			
 			ivec2 sample_pos = thread_id + ivec2(x, y);
 			
-			sample_pos = clamp(sample_pos, ivec2(0), size);
+			// CLAMP TO EDGE
+			//sample_pos = clamp(sample_pos, ivec2(0), size);
+			
+			// DISCARD OUT OF BOUNDS
+			if (sample_pos.x < 0 || size.x < sample_pos.x || sample_pos.y < 0 || size.y < sample_pos.y) continue;
 			
 			color_sum += imageLoad(source_image, sample_pos);
 			samples += 1;
