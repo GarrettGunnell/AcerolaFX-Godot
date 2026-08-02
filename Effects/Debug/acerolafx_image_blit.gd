@@ -4,6 +4,8 @@ class_name AcerolaFX_ImageBlit
 
 @export var source_texture : Texture2D;
 @export var nearest_neighbor : bool = false;
+@export var zoom : float = 1.0;
+@export var offset : Vector2 = Vector2.ZERO;
 
 var rd : RenderingDevice;
 var shader : RID;
@@ -53,7 +55,9 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 	var push_constant : PackedFloat32Array = PackedFloat32Array();
 	push_constant.push_back(render_size.x);
 	push_constant.push_back(render_size.y);
-	push_constant.push_back(0.0);
+	push_constant.push_back(offset.x);
+	push_constant.push_back(offset.y);
+	push_constant.push_back(zoom);
 	push_constant.push_back(0.0);
 	
 	var color_buffer : RID = render_scene_buffers.get_color_layer(0);
@@ -94,13 +98,14 @@ func compile_shader() -> bool:
 	
 	if shader.is_valid():
 		rd.free_rid(shader);
+		
 		shader = RID();
 		pipeline = RID();
 	
 	var shader_source: RDShaderSource = RDShaderSource.new();
 	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
 	shader_source.source_compute = shader_code;
-	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
+	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source, false);
 	
 	if shader_spirv.compile_error_compute != "":
 		push_error(shader_spirv.compile_error_compute);
@@ -112,7 +117,7 @@ func compile_shader() -> bool:
 	
 	pipeline = rd.compute_pipeline_create(shader);
 	
-	print("Successful recompilation");
+	print("Successful recompilation: ", pipeline.is_valid());
 	
 	return pipeline.is_valid();
 
@@ -140,7 +145,9 @@ layout(set = 0, binding = 1) uniform sampler2D blit_image;
 // Our push constant
 layout(push_constant, std430) uniform Params {
 	vec2 raster_size;
-	vec2 reserved;
+	vec2 offset;
+	float zoom;
+	float reserved;
 } params;
 
 // The code we want to execute in each invocation
@@ -153,6 +160,12 @@ void main() {
 	}
 	
 	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
+	vec2 texel_size = vec2(1.0) / params.raster_size;
+	
+	uv = uv * 2.0 - 1.0;
+	uv /= params.zoom;
+	uv += params.offset;
+	uv = uv * 0.5 + 0.5;
 	
 	vec4 blit_image_color = texture(blit_image, uv);
 
