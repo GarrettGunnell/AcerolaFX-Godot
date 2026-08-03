@@ -28,8 +28,8 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-disabled = true
-kernel_size = 10
+blur_type = 1
+kernel_size = 15
 pass_count = 2
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 

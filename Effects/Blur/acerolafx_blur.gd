@@ -3,7 +3,9 @@ extends CompositorEffect
 class_name AcerolaFX_Blur
 
 @export var disabled : bool = false;
-@export var kernel_size : int = 1;
+enum BlurType {BOX, GAUSSIAN};
+@export var blur_type : BlurType;
+@export_range(1, 1000) var kernel_size : int = 1;
 @export_range(1, 10) var pass_count : int = 1;
 
 @export_group("Experimental")
@@ -26,6 +28,11 @@ var box_blur_pass_one_shader : RID;
 var box_blur_pass_one_pipeline : RID;
 var box_blur_pass_two_shader : RID;
 var box_blur_pass_two_pipeline : RID;
+
+var gaussian_blur_pass_one_shader : RID;
+var gaussian_blur_pass_one_pipeline : RID;
+var gaussian_blur_pass_two_shader : RID;
+var gaussian_blur_pass_two_pipeline : RID;
 
 var nearest_sampler : RID;
 var pong_texture : RID;
@@ -80,7 +87,10 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		unseparated_blur(render_scene_buffers);
 		return;
 	
-	box_blur(render_scene_buffers);
+	if blur_type == BlurType.BOX:
+		box_blur(render_scene_buffers);
+	elif blur_type == BlurType.GAUSSIAN:
+		gaussian_blur(render_scene_buffers);
 
 
 func bad_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
@@ -208,6 +218,48 @@ func box_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	rd.compute_list_end();
 
 
+func gaussian_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
+	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
+	
+	var x_groups : int = int(float(render_size.x - 1) / 8 + 1);
+	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
+	var z_groups : int = 1;
+	
+	var push_constant : PackedInt32Array = PackedInt32Array();
+	push_constant.push_back(render_size.x);
+	push_constant.push_back(render_size.y);
+	push_constant.push_back(kernel_size);
+	push_constant.push_back(0);
+	
+	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
+	
+	var source_buffer_uniform : RDUniform = RDUniform.new();
+	source_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	source_buffer_uniform.binding = 0;
+	source_buffer_uniform.add_id(color_buffer);
+	
+	var destination_buffer_uniform : RDUniform = RDUniform.new();
+	destination_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	destination_buffer_uniform.binding = 1;
+	destination_buffer_uniform.add_id(pong_texture);
+	
+	var blur_uniform_set : RID = UniformSetCacheRD.get_cache(gaussian_blur_pass_one_shader, 0, [ source_buffer_uniform, destination_buffer_uniform ]);
+	
+	var compute_list := rd.compute_list_begin();
+	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
+	
+	for blur_pass in pass_count:
+		rd.compute_list_bind_compute_pipeline(compute_list, gaussian_blur_pass_one_pipeline);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		rd.compute_list_bind_compute_pipeline(compute_list, gaussian_blur_pass_two_pipeline);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+	
+	rd.compute_list_end();
+
 func compile_shaders() -> bool:
 	if not rd: return false;
 	
@@ -223,6 +275,9 @@ func compile_shaders() -> bool:
 	compilation_success = compile_box_blur();
 	if not compilation_success: return false;
 	
+	compilation_success = compile_gaussian_blur();
+	if not compilation_success: return false;
+	
 	return true;
 
 
@@ -234,7 +289,7 @@ func compile_blit_shader() -> bool:
 	
 	var shader_source: RDShaderSource = RDShaderSource.new();
 	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
-	shader_source.source_compute = blit_shader_code;
+	shader_source.source_compute = blit_shader_code();
 	
 	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
 	
@@ -259,7 +314,7 @@ func compile_naive_blur() -> bool:
 	
 	var shader_source: RDShaderSource = RDShaderSource.new();
 	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
-	shader_source.source_compute = naive_single_buffer_blur_shader_code;
+	shader_source.source_compute = naive_single_buffer_blur_shader_code();
 	
 	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
 	
@@ -284,7 +339,7 @@ func compile_unseparated_blur() -> bool:
 	
 	var shader_source: RDShaderSource = RDShaderSource.new();
 	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
-	shader_source.source_compute = unseparated_blur_shader_code;
+	shader_source.source_compute = unseparated_blur_shader_code();
 	
 	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
 	
@@ -314,7 +369,7 @@ func compile_box_blur() -> bool:
 	
 	var shader_source: RDShaderSource = RDShaderSource.new();
 	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
-	shader_source.source_compute = box_blur_pass_one_shader_code;
+	shader_source.source_compute = box_blur_pass_one_shader_code();
 	
 	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
 	
@@ -327,7 +382,7 @@ func compile_box_blur() -> bool:
 	
 	box_blur_pass_one_pipeline = rd.compute_pipeline_create(box_blur_pass_one_shader);
 	
-	shader_source.source_compute = box_blur_pass_two_shader_code;
+	shader_source.source_compute = box_blur_pass_two_shader_code();
 	shader_spirv = rd.shader_compile_spirv_from_source(shader_source);
 	
 	if shader_spirv.compile_error_compute != "":
@@ -341,6 +396,48 @@ func compile_box_blur() -> bool:
 	
 	print("Recompiled box blur");
 	return box_blur_pass_one_pipeline.is_valid() and box_blur_pass_two_pipeline.is_valid();
+
+
+func compile_gaussian_blur() -> bool:
+	if gaussian_blur_pass_one_shader.is_valid():
+		rd.free_rid(gaussian_blur_pass_one_shader);
+		gaussian_blur_pass_one_shader = RID();
+		gaussian_blur_pass_one_pipeline = RID();
+	
+	if gaussian_blur_pass_two_shader.is_valid():
+		rd.free_rid(gaussian_blur_pass_two_shader);
+		gaussian_blur_pass_two_shader = RID();
+		gaussian_blur_pass_two_pipeline = RID();
+	
+	var shader_source: RDShaderSource = RDShaderSource.new();
+	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
+	shader_source.source_compute = gaussian_blur_pass_one_shader_code();
+	
+	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	gaussian_blur_pass_one_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not gaussian_blur_pass_one_shader.is_valid(): return false;
+	
+	gaussian_blur_pass_one_pipeline = rd.compute_pipeline_create(gaussian_blur_pass_one_shader);
+	
+	shader_source.source_compute = gaussian_blur_pass_two_shader_code();
+	shader_spirv = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	gaussian_blur_pass_two_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not gaussian_blur_pass_two_shader.is_valid(): return false;
+	
+	gaussian_blur_pass_two_pipeline = rd.compute_pipeline_create(gaussian_blur_pass_two_shader);
+	
+	print("Recompiled gaussian blur");
+	return gaussian_blur_pass_one_pipeline.is_valid() and gaussian_blur_pass_two_pipeline.is_valid();
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
@@ -367,7 +464,8 @@ func _validate_property(property: Dictionary):
 
 
 
-const blit_shader_code: String = """
+func blit_shader_code() -> String:
+	return """
 #version 450
 
 // Invocations in the (x, y, z) dimension
@@ -393,7 +491,8 @@ void main() {
 }
 """
 
-const naive_single_buffer_blur_shader_code: String = """
+func naive_single_buffer_blur_shader_code() -> String:
+	return """
 #version 450
 
 // Invocations in the (x, y, z) dimension
@@ -444,7 +543,8 @@ void main() {
 }
 """
 
-const unseparated_blur_shader_code: String = """
+func unseparated_blur_shader_code() -> String:
+	return """
 #version 450
 
 // Invocations in the (x, y, z) dimension
@@ -500,7 +600,8 @@ void main() {
 }
 """
 
-const box_blur_pass_one_shader_code: String = """
+func box_blur_pass_one_shader_code() -> String:
+	return """
 #version 450
 
 // Invocations in the (x, y, z) dimension
@@ -555,7 +656,8 @@ void main() {
 }
 """
 
-const box_blur_pass_two_shader_code: String = """
+func box_blur_pass_two_shader_code() -> String:
+	return """
 #version 450
 
 // Invocations in the (x, y, z) dimension
@@ -604,6 +706,136 @@ void main() {
 	}
 	
 	vec4 color_output = color_sum / vec4(samples);
+
+	imageStore(source_image, thread_id, color_output);
+}
+"""
+
+func gaussian_blur_pass_one_shader_code() -> String:
+	return """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int kernel_size;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
+
+	vec4 color = imageLoad(source_image, thread_id);
+
+	int kernel_size = params.kernel_size;
+	
+	float PI = 3.14159265359;
+	float sigma = 5.0;
+	float sigma_squared = sigma * sigma;
+	
+	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	vec4 color_sum = color * total_weight;
+	
+	for (int x = -kernel_size; x <= kernel_size; ++x) {
+		if (x == 0) continue;
+		
+		ivec2 sample_pos = thread_id + ivec2(x, 0);
+		
+		// CLAMP TO EDGE
+		//sample_pos = clamp(sample_pos.x, ivec2(0), size);
+		
+		// DISCARD OUT OF BOUNDS
+		if (sample_pos.x < 0 || size.x <= sample_pos.x) continue;
+		
+		float distance_squared = x * x;
+		float gaussian_numerator = exp(-distance_squared / (2.0 * sigma_squared));
+		float gaussian_denominator = sqrt(2.0 * PI * sigma_squared);
+		float gaussian = gaussian_numerator / gaussian_denominator;
+		
+		color_sum += imageLoad(source_image, sample_pos) * gaussian;
+		total_weight += gaussian;
+	}
+	
+	vec4 color_output = color_sum / vec4(total_weight);
+
+	imageStore(destination_image, thread_id, color_output);
+}
+"""
+
+func gaussian_blur_pass_two_shader_code() -> String:
+	return """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int kernel_size;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
+
+	vec4 color = imageLoad(destination_image, thread_id);
+
+	int kernel_size = params.kernel_size;
+	
+	float PI = 3.14159265359;
+	float sigma = 5.0;
+	float sigma_squared = sigma * sigma;
+	
+	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	vec4 color_sum = color * total_weight;
+	
+	for (int y = -kernel_size; y <= kernel_size; ++y) {
+		if (y == 0) continue;
+		
+		ivec2 sample_pos = thread_id + ivec2(0, y);
+		
+		// CLAMP TO EDGE
+		//sample_pos = clamp(sample_pos.y, ivec2(0), size);
+		
+		// DISCARD OUT OF BOUNDS
+		if (sample_pos.y < 0 || size.y <= sample_pos.y) continue;
+		
+		float distance_squared = y * y;
+		float gaussian_numerator = exp(-distance_squared / (2.0 * sigma_squared));
+		float gaussian_denominator = sqrt(2.0 * PI * sigma_squared);
+		float gaussian = gaussian_numerator / gaussian_denominator;
+		
+		color_sum += imageLoad(destination_image, sample_pos) * gaussian;
+		total_weight += gaussian;
+	}
+	
+	vec4 color_output = color_sum / vec4(total_weight);
 
 	imageStore(source_image, thread_id, color_output);
 }
