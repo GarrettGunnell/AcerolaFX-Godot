@@ -7,6 +7,7 @@ class_name AcerolaFX_Blur
 
 @export_group("Experimental")
 @export var race_condition_blur : bool = false;
+@export var unseparated_box_blur : bool = false;
 @export_group("")
 
 var rd : RenderingDevice;
@@ -19,6 +20,11 @@ var single_buffer_blur_pipeline : RID;
 
 var unseparated_blur_shader : RID;
 var unseparated_blur_pipeline : RID;
+
+var box_blur_pass_one_shader : RID;
+var box_blur_pass_one_pipeline : RID;
+var box_blur_pass_two_shader : RID;
+var box_blur_pass_two_pipeline : RID;
 
 var nearest_sampler : RID;
 var pong_texture : RID;
@@ -69,7 +75,11 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		bad_blur(render_scene_buffers);
 		return;
 	
-	unseparated_blur(render_scene_buffers);
+	if unseparated_box_blur:
+		unseparated_blur(render_scene_buffers);
+		return;
+	
+	box_blur(render_scene_buffers);
 
 
 func bad_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
@@ -154,6 +164,45 @@ func unseparated_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	rd.compute_list_end();
 
 
+func box_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
+	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
+	
+	var x_groups : int = int(float(render_size.x - 1) / 8 + 1);
+	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
+	var z_groups : int = 1;
+	
+	var push_constant : PackedInt32Array = PackedInt32Array();
+	push_constant.push_back(render_size.x);
+	push_constant.push_back(render_size.y);
+	push_constant.push_back(kernel_size);
+	push_constant.push_back(0);
+	
+	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
+	
+	var source_buffer_uniform : RDUniform = RDUniform.new();
+	source_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	source_buffer_uniform.binding = 0;
+	source_buffer_uniform.add_id(color_buffer);
+	
+	var destination_buffer_uniform : RDUniform = RDUniform.new();
+	destination_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	destination_buffer_uniform.binding = 1;
+	destination_buffer_uniform.add_id(pong_texture);
+	
+	var blur_uniform_set : RID = UniformSetCacheRD.get_cache(box_blur_pass_one_shader, 0, [ source_buffer_uniform, destination_buffer_uniform ]);
+	
+	var compute_list := rd.compute_list_begin();
+	rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_one_pipeline);
+	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
+	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+	rd.compute_list_add_barrier(compute_list);
+	rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_two_pipeline);
+	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
+	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+	rd.compute_list_end();
+
 func compile_shaders() -> bool:
 	if not rd: return false;
 	
@@ -164,6 +213,9 @@ func compile_shaders() -> bool:
 	if not compilation_success: return false;
 	
 	compilation_success = compile_unseparated_blur();
+	if not compilation_success: return false;
+	
+	compilation_success = compile_box_blur();
 	if not compilation_success: return false;
 	
 	return true;
@@ -243,6 +295,47 @@ func compile_unseparated_blur() -> bool:
 	print("Recompiled unseparated blur");
 	return unseparated_blur_pipeline.is_valid();
 
+
+func compile_box_blur() -> bool:
+	if box_blur_pass_one_shader.is_valid():
+		rd.free_rid(box_blur_pass_one_shader);
+		box_blur_pass_one_shader = RID();
+		box_blur_pass_one_pipeline = RID();
+	
+	if box_blur_pass_two_shader.is_valid():
+		rd.free_rid(box_blur_pass_two_shader);
+		box_blur_pass_two_shader = RID();
+		box_blur_pass_two_pipeline = RID();
+	
+	var shader_source: RDShaderSource = RDShaderSource.new();
+	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
+	shader_source.source_compute = box_blur_pass_one_shader_code;
+	
+	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	box_blur_pass_one_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not box_blur_pass_one_shader.is_valid(): return false;
+	
+	box_blur_pass_one_pipeline = rd.compute_pipeline_create(box_blur_pass_one_shader);
+	
+	shader_source.source_compute = box_blur_pass_two_shader_code;
+	shader_spirv = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	box_blur_pass_two_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not box_blur_pass_two_shader.is_valid(): return false;
+	
+	box_blur_pass_two_pipeline = rd.compute_pipeline_create(box_blur_pass_two_shader);
+	
+	print("Recompiled box blur");
+	return box_blur_pass_one_pipeline.is_valid() and box_blur_pass_two_pipeline.is_valid();
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
@@ -346,7 +439,6 @@ void main() {
 }
 """
 
-
 const unseparated_blur_shader_code: String = """
 #version 450
 
@@ -390,7 +482,7 @@ void main() {
 			//sample_pos = clamp(sample_pos, ivec2(0), size);
 			
 			// DISCARD OUT OF BOUNDS
-			if (sample_pos.x < 0 || size.x < sample_pos.x || sample_pos.y < 0 || size.y < sample_pos.y) continue;
+			if (sample_pos.x < 0 || size.x <= sample_pos.x || sample_pos.y < 0 || size.y <= sample_pos.y) continue;
 			
 			color_sum += imageLoad(source_image, sample_pos);
 			samples += 1;
@@ -400,5 +492,114 @@ void main() {
 	vec4 color_output = color_sum / vec4(samples);
 
 	imageStore(destination_image, thread_id, color_output);
+}
+"""
+
+const box_blur_pass_one_shader_code: String = """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int kernel_size;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
+
+	vec4 color = imageLoad(source_image, thread_id);
+
+	int kernel_size = params.kernel_size;
+	
+	int samples = 1;
+	vec4 color_sum = color;
+	
+	for (int x = -kernel_size; x <= kernel_size; ++x) {
+		if (x == 0) continue;
+			
+		ivec2 sample_pos = thread_id + ivec2(x, 0);
+			
+		// CLAMP TO EDGE
+		//sample_pos = clamp(sample_pos.x, ivec2(0), size);
+			
+		// DISCARD OUT OF BOUNDS
+		if (sample_pos.x < 0 || size.x <= sample_pos.x) continue;
+			
+		color_sum += imageLoad(source_image, sample_pos);
+		samples += 1;
+	}
+	
+	vec4 color_output = color_sum / vec4(samples);
+
+	imageStore(destination_image, thread_id, color_output);
+}
+"""
+
+const box_blur_pass_two_shader_code: String = """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int kernel_size;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	vec2 uv = gl_GlobalInvocationID.xy / params.raster_size;
+
+	vec4 color = imageLoad(destination_image, thread_id);
+
+	int kernel_size = params.kernel_size;
+	
+	int samples = 1;
+	vec4 color_sum = color;
+	for (int y = -kernel_size; y <= kernel_size; ++y) {
+		if (y == 0) continue;
+		
+		ivec2 sample_pos = thread_id + ivec2(0, y);
+		
+		// CLAMP TO EDGE
+		//sample_pos = clamp(sample_pos.y, ivec2(0), size);
+		
+		// DISCARD OUT OF BOUNDS
+		if (sample_pos.y < 0 || size.y <= sample_pos.y) continue;
+		
+		color_sum += imageLoad(destination_image, sample_pos);
+		samples += 1;
+	}
+	
+	vec4 color_output = color_sum / vec4(samples);
+
+	imageStore(source_image, thread_id, color_output);
 }
 """
