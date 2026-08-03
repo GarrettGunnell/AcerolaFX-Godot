@@ -7,6 +7,7 @@ enum BlurType {BOX, GAUSSIAN};
 @export var blur_type : BlurType;
 @export_range(1, 1000) var kernel_size : int = 1;
 @export_range(1, 10) var pass_count : int = 1;
+@export var std_deviation : float = 1.0;
 
 @export_group("Experimental")
 @export var race_condition_blur : bool = false;
@@ -225,11 +226,12 @@ func gaussian_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
 	var z_groups : int = 1;
 	
-	var push_constant : PackedInt32Array = PackedInt32Array();
-	push_constant.push_back(render_size.x);
-	push_constant.push_back(render_size.y);
-	push_constant.push_back(kernel_size);
-	push_constant.push_back(0);
+	
+	var push_constant : PackedByteArray = PackedByteArray();
+	push_constant.append_array(PackedInt32Array([render_size.x]).to_byte_array())
+	push_constant.append_array(PackedInt32Array([render_size.y]).to_byte_array())
+	push_constant.append_array(PackedInt32Array([kernel_size]).to_byte_array())
+	push_constant.append_array(PackedFloat32Array([std_deviation]).to_byte_array())
 	
 	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
 	
@@ -250,11 +252,11 @@ func gaussian_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	
 	for blur_pass in pass_count:
 		rd.compute_list_bind_compute_pipeline(compute_list, gaussian_blur_pass_one_pipeline);
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 		rd.compute_list_add_barrier(compute_list);
 		rd.compute_list_bind_compute_pipeline(compute_list, gaussian_blur_pass_two_pipeline);
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 		rd.compute_list_add_barrier(compute_list);
 	
@@ -725,7 +727,7 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
 	int kernel_size;
-	int reserved;
+	float std_deviation;
 } params;
 
 // The code we want to execute in each invocation
@@ -744,7 +746,7 @@ void main() {
 	int kernel_size = params.kernel_size;
 	
 	float PI = 3.14159265359;
-	float sigma = 5.0;
+	float sigma = params.std_deviation;
 	float sigma_squared = sigma * sigma;
 	
 	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
@@ -790,7 +792,7 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
 	int kernel_size;
-	int reserved;
+	float std_deviation;
 } params;
 
 // The code we want to execute in each invocation
@@ -809,7 +811,7 @@ void main() {
 	int kernel_size = params.kernel_size;
 	
 	float PI = 3.14159265359;
-	float sigma = 5.0;
+	float sigma = params.std_deviation;
 	float sigma_squared = sigma * sigma;
 	
 	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
