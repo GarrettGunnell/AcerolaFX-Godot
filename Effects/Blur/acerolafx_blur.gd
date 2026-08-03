@@ -4,6 +4,7 @@ class_name AcerolaFX_Blur
 
 @export var disabled : bool = false;
 @export var kernel_size : int = 1;
+@export_range(1, 10) var pass_count : int = 1;
 
 @export_group("Experimental")
 @export var race_condition_blur : bool = false;
@@ -192,16 +193,20 @@ func box_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var blur_uniform_set : RID = UniformSetCacheRD.get_cache(box_blur_pass_one_shader, 0, [ source_buffer_uniform, destination_buffer_uniform ]);
 	
 	var compute_list := rd.compute_list_begin();
-	rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_one_pipeline);
 	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
-	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
-	rd.compute_list_add_barrier(compute_list);
-	rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_two_pipeline);
-	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
-	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+	
+	for blur_pass in pass_count:
+		rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_one_pipeline);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		rd.compute_list_bind_compute_pipeline(compute_list, box_blur_pass_two_pipeline);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+	
 	rd.compute_list_end();
+
 
 func compile_shaders() -> bool:
 	if not rd: return false;
@@ -443,7 +448,7 @@ const unseparated_blur_shader_code: String = """
 #version 450
 
 // Invocations in the (x, y, z) dimension
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
 layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
