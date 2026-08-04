@@ -313,13 +313,50 @@ func kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var compute_list := rd.compute_list_begin();
 	
 	for blur_pass in pass_count:
+		# Source (Ping) -> First Blur (Pong) - Distance: 0
 		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_one_pipeline);
 		rd.compute_list_bind_uniform_set(compute_list, ping_uniform_set, 0);
+		push_constant[2] = 0;
 		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 		rd.compute_list_add_barrier(compute_list);
+		
+		# First Blur (Pong) -> Second Blur (Ping) - Distance: 1
 		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_two_pipeline);
 		rd.compute_list_bind_uniform_set(compute_list, pong_uniform_set, 0);
+		push_constant[2] = 1;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		
+		# Second Blur (Ping) -> Third Blur (Pong) - Distance: 2
+		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_one_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, ping_uniform_set, 0);
+		push_constant[2] = 2;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		
+		# Third Blur (Pong) -> Fourth Blur (Ping) - Distance: 2
+		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_two_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, pong_uniform_set, 0);
+		push_constant[2] = 2;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		
+		# Fourth Blur (Ping) -> Fifth Blur (Pong) - Distance: 3
+		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_one_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, ping_uniform_set, 0);
+		push_constant[2] = 3;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		
+		# Fifth Blur (Pong) -> Sixth Blur (Ping) - Distance: 4
+		rd.compute_list_bind_compute_pipeline(compute_list, kawase_blur_pass_two_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, pong_uniform_set, 0);
+		push_constant[2] = 4;
 		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 		rd.compute_list_add_barrier(compute_list);
@@ -966,7 +1003,7 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 // Our push constant
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
-	int kernel_size;
+	int sample_distance;
 	int reserved;
 } params;
 
@@ -984,7 +1021,7 @@ void main() {
 	vec2 texel_size = 1.0 / vec2(size);
 	vec2 half_offset = texel_size / 2.0;
 	
-	vec2 total_offset = half_offset + texel_size;
+	vec2 total_offset = half_offset + texel_size * params.sample_distance;
 	
 	// Pixel corners
 	vec2 top_left_uv = uv - total_offset;
@@ -1016,7 +1053,7 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 // Our push constant
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
-	int kernel_size;
+	int sample_distance;
 	int reserved;
 } params;
 
@@ -1034,7 +1071,7 @@ void main() {
 	vec2 texel_size = 1.0 / vec2(size);
 	vec2 half_offset = texel_size / 2.0;
 	
-	vec2 total_offset = half_offset + texel_size * 2.0;
+	vec2 total_offset = half_offset + texel_size * params.sample_distance;
 	
 	// Pixel corners
 	vec2 top_left_uv = uv - total_offset;
