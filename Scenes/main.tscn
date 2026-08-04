@@ -57,6 +57,7 @@ needs_normal_roughness = false
 script = ExtResource("3_kry3j")
 blur_type = 2
 kernel_size = 20
+pass_count = 3
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]

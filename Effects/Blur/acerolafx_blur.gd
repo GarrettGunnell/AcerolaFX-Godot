@@ -979,34 +979,27 @@ void main() {
 		return;
 	}
 	
-	vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(params.raster_size);
-	vec2 texel_size = 1.0 / params.raster_size;
-
-	vec4 color = texture(source_texture, uv);
-
-	int kernel_size = params.kernel_size;
+	// Center of pixel
+	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
+	vec2 texel_size = 1.0 / vec2(size);
+	vec2 half_offset = texel_size / 2.0;
 	
-	int samples = 1;
-	vec4 color_sum = color;
+	vec2 total_offset = half_offset + texel_size;
 	
-	for (int x = -kernel_size; x <= kernel_size; ++x) {
-		if (x == 0) continue;
-			
-		vec2 sample_uv = uv + vec2(x, 0) * texel_size;
-			
-		// CLAMP TO EDGE
-		//sample_pos = clamp(sample_pos.x, ivec2(0), size);
-			
-		// DISCARD OUT OF BOUNDS
-		if (sample_uv.x < 0 || 1.0 < sample_uv.x) continue;
-			
-		color_sum += texture(source_texture, sample_uv);
-		samples += 1;
-	}
+	// Pixel corners
+	vec2 top_left_uv = uv - total_offset;
+	vec2 top_right_uv = uv + vec2(total_offset.x, -total_offset.y);
+	vec2 bottom_left_uv = uv + vec2(-total_offset.x, total_offset.y);
+	vec2 bottom_right_uv = uv + total_offset;
 	
-	vec4 color_output = color_sum / vec4(samples);
+	vec4 top_left = texture(source_texture, top_left_uv);
+	vec4 top_right = texture(source_texture, top_right_uv);
+	vec4 bottom_left = texture(source_texture, bottom_left_uv);
+	vec4 bottom_right = texture(source_texture, bottom_right_uv);
 
-	imageStore(destination_image, thread_id, color_output);
+	vec4 color = (top_left + top_right + bottom_left + bottom_right) / 4.0;
+
+	imageStore(destination_image, thread_id, color);
 }
 """
 
@@ -1036,32 +1029,28 @@ void main() {
 		return;
 	}
 	
-	vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(params.raster_size);
-	vec2 texel_size = 1.0 / params.raster_size;
-
-	vec4 color = texture(source_texture, uv);
-
-	int kernel_size = params.kernel_size;
+	// Center of pixel
+	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
+	vec2 texel_size = 1.0 / vec2(size);
+	vec2 half_offset = texel_size / 2.0;
 	
-	int samples = 1;
-	vec4 color_sum = color;
-	for (int y = -kernel_size; y <= kernel_size; ++y) {
-		if (y == 0) continue;
-			
-		vec2 sample_uv = uv + vec2(0, y) * texel_size;
-			
-		// CLAMP TO EDGE
-		//sample_pos = clamp(sample_pos.y, ivec2(0), size);
-			
-		// DISCARD OUT OF BOUNDS
-		if (sample_uv.y < 0 || 1.0 < sample_uv.y) continue;
-			
-		color_sum += texture(source_texture, sample_uv);
-		samples += 1;
-	}
+	vec2 total_offset = half_offset + texel_size * 2.0;
 	
-	vec4 color_output = color_sum / vec4(samples);
+	// Pixel corners
+	vec2 top_left_uv = uv - total_offset;
+	vec2 top_right_uv = uv + vec2(total_offset.x, -total_offset.y);
+	vec2 bottom_left_uv = uv + vec2(-total_offset.x, total_offset.y);
+	vec2 bottom_right_uv = uv + total_offset;
+	
+	vec4 top_left = texture(source_texture, top_left_uv);
+	vec4 top_right = texture(source_texture, top_right_uv);
+	vec4 bottom_left = texture(source_texture, bottom_left_uv);
+	vec4 bottom_right = texture(source_texture, bottom_right_uv);
 
-	imageStore(destination_image, thread_id, color_output);
+	vec4 color = (top_left + top_right + bottom_left + bottom_right) / 4.0;
+	
+	vec4 old_value = texture(source_texture, vec2(thread_id) / vec2(size));
+
+	imageStore(destination_image, thread_id, color);
 }
 """
