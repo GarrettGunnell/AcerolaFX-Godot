@@ -47,8 +47,20 @@ kernel_size = 10
 pass_count = 2
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
+[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+blur_type = 2
+kernel_size = 20
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_7sicb")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_7sicb"), SubResource("CompositorEffect_kry3j")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bo1nx"]
 diffuse_mode = 1
