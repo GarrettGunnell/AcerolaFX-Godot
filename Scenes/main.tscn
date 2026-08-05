@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://duahqx2n475yj"]
 
 [ext_resource type="Script" uid="uid://cy6w43y8cmus" path="res://Effects/Debug/acerolafx_image_blit.gd" id="1_bo1nx"]
-[ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://wave_transformer.gd" id="2_bo1nx"]
-[ext_resource type="Texture2D" uid="uid://dcerrwkm4rwgh" path="res://Ignored/fuji-1.png" id="2_jjvhh"]
+[ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://Ignored/wave_transformer.gd" id="2_bo1nx"]
+[ext_resource type="Texture2D" uid="uid://dcpq2nuvs48bq" path="res://Ignored/fuji-3.png" id="2_jjvhh"]
 [ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
@@ -28,38 +28,13 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-disabled = true
-blur_type = 1
-kernel_size = 30
-std_deviation = 10.0
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_7sicb"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-disabled = true
-kernel_size = 10
-pass_count = 2
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
 blur_type = 2
+kernel_size = 8
+std_deviation = 7.0
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_7sicb"), SubResource("CompositorEffect_kry3j")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bo1nx"]
 diffuse_mode = 1
