@@ -30,6 +30,7 @@ folder_colors={
 "res://Effects/Debug/": "gray",
 "res://Effects/Motion Blur/": "gray",
 "res://Ignored/": "pink",
+"res://Ignored/Scripts/": "purple",
 "res://Ignored/Sponza/": "green"
 }
 

@@ -38,6 +38,7 @@ func _init():
 
 
 func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
+	if disabled: return;
 	if not rd: return;
 	if not pipeline.is_valid(): return;
 	
