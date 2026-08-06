@@ -4,10 +4,12 @@ class_name AcerolaFX_Blur
 
 @export var disabled : bool = false;
 enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE};
-@export var blur_type : BlurType;
+@export var blur_type : BlurType = BlurType.BOX;
 @export_range(1, 1000) var kernel_size : int = 1;
 @export_range(1, 10) var pass_count : int = 1;
 @export var std_deviation : float = 1.0;
+enum DownsampleLimit {SIXTEENTH, EIGHTH, QUARTER, HALF};
+@export var downsample_limit : DownsampleLimit = DownsampleLimit.SIXTEENTH;
 
 @export_group("Experimental")
 @export var race_condition_blur : bool = false;
@@ -491,59 +493,64 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 		rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
 		rd.compute_list_add_barrier(compute_list);
 		
-		# Half Resolution -> Quarter Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
-		push_constant[0] = render_size.x / 4;
-		push_constant[1] = render_size.y / 4;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+		if downsample_limit <= DownsampleLimit.QUARTER:
+			# Half Resolution -> Quarter Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
+			push_constant[0] = render_size.x / 4;
+			push_constant[1] = render_size.y / 4;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
-		# Quarter Resolution -> Eighth Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
-		push_constant[0] = render_size.x / 8;
-		push_constant[1] = render_size.y / 8;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+		if downsample_limit <= DownsampleLimit.EIGHTH:
+			# Quarter Resolution -> Eighth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
+			push_constant[0] = render_size.x / 8;
+			push_constant[1] = render_size.y / 8;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
-		# Eighth Resolution -> Sixteenth Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
-		push_constant[0] = render_size.x / 16;
-		push_constant[1] = render_size.y / 16;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+		if downsample_limit <= DownsampleLimit.SIXTEENTH:
+			# Eighth Resolution -> Sixteenth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
+			push_constant[0] = render_size.x / 16;
+			push_constant[1] = render_size.y / 16;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
-		# Sixteenth Resolution -> Eighth Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
-		push_constant[0] = render_size.x / 8;
-		push_constant[1] = render_size.y / 8;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+			# Sixteenth Resolution -> Eighth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
+			push_constant[0] = render_size.x / 8;
+			push_constant[1] = render_size.y / 8;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
-		# Eighth Resolution -> Quarter Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
-		push_constant[0] = render_size.x / 4;
-		push_constant[1] = render_size.y / 4;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+		if downsample_limit <= DownsampleLimit.EIGHTH:
+			# Eighth Resolution -> Quarter Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
+			push_constant[0] = render_size.x / 4;
+			push_constant[1] = render_size.y / 4;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
-		# Quarter Resolution -> Half Resolution
-		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
-		rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
-		push_constant[0] = render_size.x / 2;
-		push_constant[1] = render_size.y / 2;
-		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
-		rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
-		rd.compute_list_add_barrier(compute_list);
+		if downsample_limit <= DownsampleLimit.QUARTER:
+			# Quarter Resolution -> Half Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
+			push_constant[0] = render_size.x / 2;
+			push_constant[1] = render_size.y / 2;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
 		
 		# Half Resolution -> Full Resolution
 		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
