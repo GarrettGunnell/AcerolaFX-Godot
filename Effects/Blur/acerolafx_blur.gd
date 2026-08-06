@@ -105,6 +105,15 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		texture_format.width = render_size.x / 2;
 		texture_format.height = render_size.y / 2;
 		half_texture = rd.texture_create(texture_format, RDTextureView.new());
+		texture_format.width = render_size.x / 4;
+		texture_format.height = render_size.y / 4;
+		quarter_texture = rd.texture_create(texture_format, RDTextureView.new());
+		texture_format.width = render_size.x / 8;
+		texture_format.height = render_size.y / 8;
+		eighth_texture = rd.texture_create(texture_format, RDTextureView.new());
+		texture_format.width = render_size.x / 16;
+		texture_format.height = render_size.y / 16;
+		sixteenth_texture = rd.texture_create(texture_format, RDTextureView.new());
 		
 	
 	if race_condition_blur:
@@ -418,6 +427,24 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 	half_source_uniform.add_id(linear_sampler);
 	half_source_uniform.add_id(half_texture);
 	
+	var quarter_source_uniform : RDUniform = RDUniform.new();
+	quarter_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	quarter_source_uniform.binding = 0;
+	quarter_source_uniform.add_id(linear_sampler);
+	quarter_source_uniform.add_id(quarter_texture);
+	
+	var eighth_source_uniform : RDUniform = RDUniform.new();
+	eighth_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	eighth_source_uniform.binding = 0;
+	eighth_source_uniform.add_id(linear_sampler);
+	eighth_source_uniform.add_id(eighth_texture);
+	
+	var sixteenth_source_uniform : RDUniform = RDUniform.new();
+	sixteenth_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	sixteenth_source_uniform.binding = 0;
+	sixteenth_source_uniform.add_id(linear_sampler);
+	sixteenth_source_uniform.add_id(sixteenth_texture);
+	
 	var full_destination_uniform : RDUniform = RDUniform.new();
 	full_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
 	full_destination_uniform.binding = 1;
@@ -428,7 +455,28 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 	half_destination_uniform.binding = 1;
 	half_destination_uniform.add_id(half_texture);
 	
+	var quarter_destination_uniform : RDUniform = RDUniform.new();
+	quarter_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	quarter_destination_uniform.binding = 1;
+	quarter_destination_uniform.add_id(quarter_texture);
+	
+	var eighth_destination_uniform : RDUniform = RDUniform.new();
+	eighth_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	eighth_destination_uniform.binding = 1;
+	eighth_destination_uniform.add_id(eighth_texture);
+	
+	var sixteenth_destination_uniform : RDUniform = RDUniform.new();
+	sixteenth_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	sixteenth_destination_uniform.binding = 1;
+	sixteenth_destination_uniform.add_id(sixteenth_texture);
+	
 	var full_to_half_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [full_source_uniform, half_destination_uniform]);
+	var half_to_quarter_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [half_source_uniform, quarter_destination_uniform]);
+	var quarter_to_eighth_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [quarter_source_uniform, eighth_destination_uniform]);
+	var eighth_to_sixteenth_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [eighth_source_uniform, sixteenth_destination_uniform]);
+	var sixteenth_to_eighth_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [sixteenth_source_uniform, eighth_destination_uniform]);
+	var eighth_to_quarter_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [eighth_source_uniform, quarter_destination_uniform]);
+	var quarter_to_half_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [quarter_source_uniform, half_destination_uniform]);
 	var half_to_full_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [half_source_uniform, full_destination_uniform]);
 	
 	var compute_list := rd.compute_list_begin();
@@ -444,16 +492,58 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 		rd.compute_list_add_barrier(compute_list);
 		
 		# Half Resolution -> Quarter Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
+		push_constant[0] = render_size.x / 4;
+		push_constant[1] = render_size.y / 4;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Quarter Resolution -> Eighth Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
+		push_constant[0] = render_size.x / 8;
+		push_constant[1] = render_size.y / 8;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Eighth Resolution -> Sixteenth Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
+		push_constant[0] = render_size.x / 16;
+		push_constant[1] = render_size.y / 16;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Sixteenth Resolution -> Eighth Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
+		push_constant[0] = render_size.x / 8;
+		push_constant[1] = render_size.y / 8;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Eighth Resolution -> Quarter Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
+		push_constant[0] = render_size.x / 4;
+		push_constant[1] = render_size.y / 4;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Quarter Resolution -> Half Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
+		push_constant[0] = render_size.x / 2;
+		push_constant[1] = render_size.y / 2;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
 		
 		# Half Resolution -> Full Resolution
 		rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
@@ -751,6 +841,15 @@ func _notification(what):
 		
 		if half_texture.is_valid():
 			rd.free_rid(half_texture);
+		
+		if quarter_texture.is_valid():
+			rd.free_rid(quarter_texture);
+		
+		if eighth_texture.is_valid():
+			rd.free_rid(eighth_texture);
+		
+		if sixteenth_texture.is_valid():
+			rd.free_rid(sixteenth_texture);
 
 
 # Removes serialized variable bloat
