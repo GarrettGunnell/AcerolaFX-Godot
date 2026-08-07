@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cy6w43y8cmus" path="res://Effects/Debug/acerolafx_image_blit.gd" id="1_bo1nx"]
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://Ignored/Scripts/wave_transformer.gd" id="2_bo1nx"]
-[ext_resource type="Texture2D" uid="uid://dcpq2nuvs48bq" path="res://Ignored/fuji-3.png" id="2_jjvhh"]
+[ext_resource type="Texture2D" uid="uid://dhki8keiyfuun" path="res://Ignored/fuji-4.png" id="2_jjvhh"]
 [ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
@@ -19,6 +19,20 @@ script = ExtResource("1_bo1nx")
 source_texture = ExtResource("2_jjvhh")
 metadata/_custom_type_script = "uid://cy6w43y8cmus"
 
+[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+disabled = true
+blur_type = 1
+kernel_size = 20
+std_deviation = 7.0
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
 [sub_resource type="CompositorEffect" id="CompositorEffect_jjvhh"]
 resource_local_to_scene = false
 resource_name = ""
@@ -27,13 +41,27 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-blur_type = 4
+disabled = true
+blur_type = 2
 kernel_size = 8
-std_deviation = 7.0
+downsample_limit = 1
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_21xkr"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+blur_type = 4
+std_deviation = 1.5
+downsample_limit = 1
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_kry3j"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_21xkr")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jjvhh"]
 shading_mode = 0
