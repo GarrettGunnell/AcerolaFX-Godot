@@ -27,10 +27,9 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-blur_type = 3
+blur_type = 4
 kernel_size = 8
 std_deviation = 7.0
-downsample_limit = 2
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]

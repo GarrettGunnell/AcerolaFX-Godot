@@ -3,7 +3,7 @@ extends CompositorEffect
 class_name AcerolaFX_Blur
 
 @export var disabled : bool = false;
-enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE};
+enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE};
 @export var blur_type : BlurType = BlurType.BOX;
 @export_range(1, 1000) var kernel_size : int = 1;
 @export_range(1, 10) var pass_count : int = 1;
@@ -46,6 +46,11 @@ var downscale_blur_shader : RID;
 var downscale_blur_pipeline : RID;
 var upscale_blur_shader : RID;
 var upscale_blur_pipeline : RID;
+
+var dual_kawase_blur_down_shader : RID;
+var dual_kawase_blur_down_pipeline : RID;
+var dual_kawase_blur_up_shader : RID;
+var dual_kawase_blur_up_pipeline : RID;
 
 var linear_sampler : RID;
 var pong_texture : RID;
@@ -134,6 +139,8 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		kawase_blur(render_scene_buffers);
 	elif blur_type == BlurType.DOWNSCALE_UPSCALE:
 		downscale_upscale_blur(render_scene_buffers);
+	elif blur_type == BlurType.DUAL_KAWASE:
+		dual_kawase_blur(render_scene_buffers);
 
 
 func bad_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
@@ -565,6 +572,171 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 	rd.compute_list_end();
 
 
+func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
+	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
+	
+	var full_groups : Vector2i = texture_size_to_thread_groups(render_size, 8);
+	var half_groups : Vector2i = texture_size_to_thread_groups(render_size / 2, 8);
+	var quarter_groups : Vector2i = texture_size_to_thread_groups(render_size / 4, 8);
+	var eighth_groups : Vector2i = texture_size_to_thread_groups(render_size / 8, 8);
+	var sixteenth_groups : Vector2i = texture_size_to_thread_groups(render_size / 16, 8);
+	
+	var push_constant : PackedInt32Array = PackedInt32Array();
+	push_constant.push_back(render_size.x);
+	push_constant.push_back(render_size.y);
+	push_constant.push_back(kernel_size);
+	push_constant.push_back(0);
+	
+	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
+	
+	var full_source_uniform : RDUniform = RDUniform.new();
+	full_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	full_source_uniform.binding = 0;
+	full_source_uniform.add_id(linear_sampler);
+	full_source_uniform.add_id(color_buffer);
+	
+	var half_source_uniform : RDUniform = RDUniform.new();
+	half_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	half_source_uniform.binding = 0;
+	half_source_uniform.add_id(linear_sampler);
+	half_source_uniform.add_id(half_texture);
+	
+	var quarter_source_uniform : RDUniform = RDUniform.new();
+	quarter_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	quarter_source_uniform.binding = 0;
+	quarter_source_uniform.add_id(linear_sampler);
+	quarter_source_uniform.add_id(quarter_texture);
+	
+	var eighth_source_uniform : RDUniform = RDUniform.new();
+	eighth_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	eighth_source_uniform.binding = 0;
+	eighth_source_uniform.add_id(linear_sampler);
+	eighth_source_uniform.add_id(eighth_texture);
+	
+	var sixteenth_source_uniform : RDUniform = RDUniform.new();
+	sixteenth_source_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+	sixteenth_source_uniform.binding = 0;
+	sixteenth_source_uniform.add_id(linear_sampler);
+	sixteenth_source_uniform.add_id(sixteenth_texture);
+	
+	var full_destination_uniform : RDUniform = RDUniform.new();
+	full_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	full_destination_uniform.binding = 1;
+	full_destination_uniform.add_id(color_buffer);
+	
+	var half_destination_uniform : RDUniform = RDUniform.new();
+	half_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	half_destination_uniform.binding = 1;
+	half_destination_uniform.add_id(half_texture);
+	
+	var quarter_destination_uniform : RDUniform = RDUniform.new();
+	quarter_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	quarter_destination_uniform.binding = 1;
+	quarter_destination_uniform.add_id(quarter_texture);
+	
+	var eighth_destination_uniform : RDUniform = RDUniform.new();
+	eighth_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	eighth_destination_uniform.binding = 1;
+	eighth_destination_uniform.add_id(eighth_texture);
+	
+	var sixteenth_destination_uniform : RDUniform = RDUniform.new();
+	sixteenth_destination_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	sixteenth_destination_uniform.binding = 1;
+	sixteenth_destination_uniform.add_id(sixteenth_texture);
+	
+	var full_to_half_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [full_source_uniform, half_destination_uniform]);
+	var half_to_quarter_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [half_source_uniform, quarter_destination_uniform]);
+	var quarter_to_eighth_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [quarter_source_uniform, eighth_destination_uniform]);
+	var eighth_to_sixteenth_set : RID = UniformSetCacheRD.get_cache(downscale_blur_shader, 0, [eighth_source_uniform, sixteenth_destination_uniform]);
+	var sixteenth_to_eighth_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [sixteenth_source_uniform, eighth_destination_uniform]);
+	var eighth_to_quarter_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [eighth_source_uniform, quarter_destination_uniform]);
+	var quarter_to_half_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [quarter_source_uniform, half_destination_uniform]);
+	var half_to_full_set : RID = UniformSetCacheRD.get_cache(upscale_blur_shader, 0, [half_source_uniform, full_destination_uniform]);
+	
+	var compute_list := rd.compute_list_begin();
+	
+	for blur_pass in pass_count:
+		# Full Resolution -> Half Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, full_to_half_set, 0);
+		push_constant[0] = render_size.x / 2;
+		push_constant[1] = render_size.y / 2;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
+		
+		if downsample_limit <= DownsampleLimit.QUARTER:
+			# Half Resolution -> Quarter Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
+			push_constant[0] = render_size.x / 4;
+			push_constant[1] = render_size.y / 4;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+		if downsample_limit <= DownsampleLimit.EIGHTH:
+			# Quarter Resolution -> Eighth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
+			push_constant[0] = render_size.x / 8;
+			push_constant[1] = render_size.y / 8;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+		if downsample_limit <= DownsampleLimit.SIXTEENTH:
+			# Eighth Resolution -> Sixteenth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
+			push_constant[0] = render_size.x / 16;
+			push_constant[1] = render_size.y / 16;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+			# Sixteenth Resolution -> Eighth Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
+			push_constant[0] = render_size.x / 8;
+			push_constant[1] = render_size.y / 8;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+		if downsample_limit <= DownsampleLimit.EIGHTH:
+			# Eighth Resolution -> Quarter Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
+			push_constant[0] = render_size.x / 4;
+			push_constant[1] = render_size.y / 4;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+		if downsample_limit <= DownsampleLimit.QUARTER:
+			# Quarter Resolution -> Half Resolution
+			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
+			rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
+			push_constant[0] = render_size.x / 2;
+			push_constant[1] = render_size.y / 2;
+			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+			rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
+			rd.compute_list_add_barrier(compute_list);
+		
+		# Half Resolution -> Full Resolution
+		rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, half_to_full_set, 0);
+		push_constant[0] = render_size.x;
+		push_constant[1] = render_size.y;
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, full_groups.x, full_groups.y, 1);
+		rd.compute_list_add_barrier(compute_list);
+		pass;
+	
+	rd.compute_list_end();
+
+
 func compile_shaders() -> bool:
 	if not rd: return false;
 	
@@ -587,6 +759,9 @@ func compile_shaders() -> bool:
 	if not compilation_success: return false;
 	
 	compilation_success = compile_downscale_upscale_blur();
+	if not compilation_success: return false;
+	
+	compilation_success = compile_dual_kawase_blur();
 	if not compilation_success: return false;
 	
 	return true;
@@ -833,6 +1008,48 @@ func compile_downscale_upscale_blur() -> bool:
 	
 	print("Recompiled downscale/upscale blur");
 	return downscale_blur_pipeline.is_valid() and upscale_blur_pipeline.is_valid();
+
+
+func compile_dual_kawase_blur() -> bool:
+	if dual_kawase_blur_down_shader.is_valid():
+		rd.free_rid(dual_kawase_blur_down_shader);
+		dual_kawase_blur_down_shader = RID();
+		dual_kawase_blur_down_pipeline = RID();
+	
+	if dual_kawase_blur_up_shader.is_valid():
+		rd.free_rid(dual_kawase_blur_up_shader);
+		dual_kawase_blur_up_shader = RID();
+		dual_kawase_blur_up_pipeline = RID();
+	
+	var shader_source: RDShaderSource = RDShaderSource.new();
+	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
+	shader_source.source_compute = dual_kawase_blur_down_shader_code();
+	
+	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	dual_kawase_blur_down_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not dual_kawase_blur_down_shader.is_valid(): return false;
+	
+	dual_kawase_blur_down_pipeline = rd.compute_pipeline_create(dual_kawase_blur_down_shader);
+	
+	shader_source.source_compute = dual_kawase_blur_up_shader_code();
+	shader_spirv = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	dual_kawase_blur_up_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not dual_kawase_blur_up_shader.is_valid(): return false;
+	
+	dual_kawase_blur_up_pipeline = rd.compute_pipeline_create(dual_kawase_blur_up_shader);
+	
+	print("Recompiled dual kawase blur");
+	return dual_kawase_blur_down_pipeline.is_valid() and dual_kawase_blur_up_pipeline.is_valid();
 
 
 func _notification(what):
@@ -1416,6 +1633,96 @@ void main() {
 	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
 	
 	vec4 color = texture(source_texture, uv);
+	
+	imageStore(destination_image, thread_id, color);
+}
+"""
+
+func dual_kawase_blur_down_shader_code() -> String:
+	return """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D source_texture;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int sample_distance;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	// Center of pixel
+	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
+	vec2 texel_size = 1.0 / vec2(size);
+	vec2 half_offset = texel_size / 2.0;
+	
+	vec4 sum = texture(source_texture, uv) * 4.0;
+	sum += texture(source_texture, uv - half_offset);
+	sum += texture(source_texture, uv + vec2(half_offset.x, -half_offset.y));
+	sum += texture(source_texture, uv - vec2(half_offset.x, -half_offset.y));
+	sum += texture(source_texture, uv + half_offset);
+	
+	
+	vec4 color = sum / 8.0;
+	
+	imageStore(destination_image, thread_id, color);
+}
+"""
+
+func dual_kawase_blur_up_shader_code() -> String:
+	return """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D source_texture;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int sample_distance;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+	
+	// Center of pixel
+	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
+	vec2 texel_size = 1.0 / vec2(size);
+	vec2 half_offset = texel_size / 2.0;
+	
+	vec4 sum = texture(source_texture, uv + vec2(-texel_size.x, 0.0));
+	sum += texture(source_texture, uv + vec2(-half_offset.x, half_offset.y)) * 2.0;
+	sum += texture(source_texture, uv + vec2(0.0, texel_size.y));
+	sum += texture(source_texture, uv + half_offset) * 2.0;
+	sum += texture(source_texture, uv + vec2(texel_size.x, 0.0));
+	sum += texture(source_texture, uv + vec2(half_offset.x, -half_offset.y)) * 2.0;
+	sum += texture(source_texture, uv + vec2(0.0, -texel_size.y));
+	sum += texture(source_texture, uv - half_offset) * 2.0;
+	
+	vec4 color = sum / 12.0;
 	
 	imageStore(destination_image, thread_id, color);
 }
