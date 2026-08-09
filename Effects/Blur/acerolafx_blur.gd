@@ -3,7 +3,7 @@ extends CompositorEffect
 class_name AcerolaFX_Blur
 
 @export var disabled : bool = false;
-enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE};
+enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE, CIRCLE};
 @export var blur_type : BlurType = BlurType.BOX;
 @export_range(1, 1000) var kernel_size : int = 1;
 @export_range(1, 10) var pass_count : int = 1;
@@ -51,6 +51,9 @@ var dual_kawase_blur_down_shader : RID;
 var dual_kawase_blur_down_pipeline : RID;
 var dual_kawase_blur_up_shader : RID;
 var dual_kawase_blur_up_pipeline : RID;
+
+var circle_blur_shader : RID;
+var circle_blur_pipeline : RID;
 
 var linear_sampler : RID;
 var pong_texture : RID;
@@ -141,6 +144,8 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		downscale_upscale_blur(render_scene_buffers);
 	elif blur_type == BlurType.DUAL_KAWASE:
 		dual_kawase_blur(render_scene_buffers);
+	elif blur_type == BlurType.CIRCLE:
+		circle_blur(render_scene_buffers);
 
 
 func bad_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
@@ -747,6 +752,61 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	rd.compute_list_end();
 
 
+func circle_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
+	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
+	
+	var x_groups : int = int(float(render_size.x - 1) / 8 + 1);
+	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
+	var z_groups : int = 1;
+	
+	var push_constant : PackedInt32Array = PackedInt32Array();
+	push_constant.push_back(render_size.x);
+	push_constant.push_back(render_size.y);
+	push_constant.push_back(kernel_size);
+	push_constant.push_back(0);
+	
+	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
+	
+	var color_buffer_uniform : RDUniform = RDUniform.new();
+	color_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	color_buffer_uniform.binding = 0;
+	color_buffer_uniform.add_id(color_buffer);
+	
+	var pong_buffer_uniform : RDUniform = RDUniform.new();
+	pong_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	pong_buffer_uniform.binding = 1;
+	pong_buffer_uniform.add_id(pong_texture);
+	
+	var blur_uniform_set : RID = UniformSetCacheRD.get_cache(circle_blur_shader, 0, [ color_buffer_uniform, pong_buffer_uniform ]);
+	
+	var source_buffer_uniform : RDUniform = RDUniform.new();
+	source_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	source_buffer_uniform.binding = 0;
+	source_buffer_uniform.add_id(pong_texture);
+	
+	var destination_buffer_uniform : RDUniform = RDUniform.new();
+	destination_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	destination_buffer_uniform.binding = 1;
+	destination_buffer_uniform.add_id(color_buffer);
+	
+	var blit_uniform_set : RID = UniformSetCacheRD.get_cache(blit_shader, 0, [ source_buffer_uniform, destination_buffer_uniform ]);
+	
+	var compute_list := rd.compute_list_begin();
+	
+	for blur_pass in pass_count:
+		rd.compute_list_bind_compute_pipeline(compute_list, circle_blur_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+		rd.compute_list_bind_compute_pipeline(compute_list, blit_pipeline);
+		rd.compute_list_bind_uniform_set(compute_list, blit_uniform_set, 0);
+		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+		rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
+		rd.compute_list_add_barrier(compute_list);
+	
+	rd.compute_list_end();
+
 func compile_shaders() -> bool:
 	if not rd: return false;
 	
@@ -772,6 +832,9 @@ func compile_shaders() -> bool:
 	if not compilation_success: return false;
 	
 	compilation_success = compile_dual_kawase_blur();
+	if not compilation_success: return false;
+	
+	compilation_success = compile_circle_blur();
 	if not compilation_success: return false;
 	
 	return true;
@@ -1061,6 +1124,30 @@ func compile_dual_kawase_blur() -> bool:
 	print("Recompiled dual kawase blur");
 	return dual_kawase_blur_down_pipeline.is_valid() and dual_kawase_blur_up_pipeline.is_valid();
 
+
+func compile_circle_blur() -> bool:
+	if circle_blur_shader.is_valid():
+		rd.free_rid(circle_blur_shader);
+		circle_blur_shader = RID();
+		circle_blur_pipeline = RID();
+	
+	var shader_source: RDShaderSource = RDShaderSource.new();
+	shader_source.language = RenderingDevice.SHADER_LANGUAGE_GLSL;
+	shader_source.source_compute = circle_blur_shader_code();
+	
+	var shader_spirv: RDShaderSPIRV = rd.shader_compile_spirv_from_source(shader_source);
+	
+	if shader_spirv.compile_error_compute != "":
+		push_error(shader_spirv.compile_error_compute);
+		return false;
+	
+	circle_blur_shader = rd.shader_create_from_spirv(shader_spirv);
+	if not circle_blur_shader.is_valid(): return false;
+	
+	circle_blur_pipeline = rd.compute_pipeline_create(circle_blur_shader);
+	
+	print("Recompiled circle blur");
+	return circle_blur_pipeline.is_valid();
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
@@ -1738,5 +1825,65 @@ void main() {
 	vec4 color = sum / 12.0;
 	
 	imageStore(destination_image, thread_id, color);
+}
+"""
+
+
+func circle_blur_shader_code() -> String:
+	return """
+#version 450
+
+// Invocations in the (x, y, z) dimension
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
+
+// Our push constant
+layout(push_constant, std430) uniform Params {
+	ivec2 raster_size;
+	int radius;
+	int reserved;
+} params;
+
+// The code we want to execute in each invocation
+void main() {
+	ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = ivec2(params.raster_size);
+
+	if (thread_id.x >= size.x || thread_id.y >= size.y) {
+		return;
+	}
+
+	vec4 color = imageLoad(source_image, thread_id);
+
+	int radius = params.radius;
+	int radius_squared = radius * radius;
+	
+	int samples = 1;
+	vec4 color_sum = color;
+	for (int x = -radius; x <= radius; ++x) {
+		for (int y = -radius; y <= radius; ++y) {
+			if (x == 0 && y == 0) continue;
+			
+			ivec2 sample_pos = thread_id + ivec2(x, y);
+			
+			// OUTSIDE CIRCLE RADIUS
+			if ((x * x + y * y) > radius_squared) continue;
+			
+			// CLAMP TO EDGE
+			//sample_pos = clamp(sample_pos, ivec2(0), size);
+			
+			// DISCARD OUT OF BOUNDS
+			if (sample_pos.x < 0 || size.x <= sample_pos.x || sample_pos.y < 0 || size.y <= sample_pos.y) continue;
+			
+			color_sum += imageLoad(source_image, sample_pos);
+			samples += 1;
+		}
+	}
+	
+	vec4 color_output = color_sum / vec4(samples);
+
+	imageStore(destination_image, thread_id, color_output);
 }
 """

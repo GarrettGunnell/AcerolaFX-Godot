@@ -27,10 +27,9 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-disabled = true
-blur_type = 1
-kernel_size = 20
-std_deviation = 7.0
+blur_type = 5
+kernel_size = 6
+std_deviation = 5.28
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="CompositorEffect" id="CompositorEffect_jjvhh"]
@@ -55,9 +54,9 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
+disabled = true
 blur_type = 4
 std_deviation = 1.5
-downsample_limit = 1
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="Compositor" id="Compositor_buhqs"]
