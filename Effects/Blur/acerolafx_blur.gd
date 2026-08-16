@@ -2,7 +2,7 @@
 extends CompositorEffect
 class_name AcerolaFX_Blur
 
-@export var disabled : bool = false;
+@export var enable : bool = true;
 enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE, CIRCLE};
 @export var blur_type : BlurType = BlurType.BOX;
 @export_range(1, 1000) var kernel_size : int = 1;
@@ -14,6 +14,7 @@ enum DownsampleLimit {SIXTEENTH, EIGHTH, QUARTER, HALF};
 @export_group("Experimental")
 @export var race_condition_blur : bool = false;
 @export var unseparated_box_blur : bool = false;
+@export var e_amplitude : float = 1.0;
 @export_group("")
 
 var rd : RenderingDevice;
@@ -73,6 +74,7 @@ func texture_size_to_thread_groups(render_size : Vector2i, group_size : int) -> 
 	return Vector2i(x, y);
 
 func _init():
+	enabled = true;
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
 	
 	rd = RenderingServer.get_rendering_device();
@@ -88,7 +90,7 @@ func _init():
 
 
 func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
-	if disabled: return;
+	if not enable: return;
 	if not rd: return;
 	if not single_buffer_blur_pipeline.is_valid(): return;
 	
@@ -112,17 +114,21 @@ func _render_callback(_effect_callback_type: int, render_data: RenderData) -> vo
 		pong_size = render_size;
 		
 		# Downsized textures
-		texture_format.width = render_size.x / 2;
-		texture_format.height = render_size.y / 2;
+		texture_format.width = ceil(render_size.x / 2.0);
+		texture_format.height = ceil(render_size.y / 2.0);
+		print(texture_format.width, " ", texture_format.height);
 		half_texture = rd.texture_create(texture_format, RDTextureView.new());
-		texture_format.width = render_size.x / 4;
-		texture_format.height = render_size.y / 4;
+		texture_format.width = ceil(render_size.x / 4.0);
+		texture_format.height = ceil(render_size.y / 4.0);
+		print(texture_format.width, " ", texture_format.height);
 		quarter_texture = rd.texture_create(texture_format, RDTextureView.new());
-		texture_format.width = render_size.x / 8;
-		texture_format.height = render_size.y / 8;
+		texture_format.width = ceil(render_size.x / 8.0);
+		texture_format.height = ceil(render_size.y / 8.0);
+		print(texture_format.width, " ", texture_format.height);
 		eighth_texture = rd.texture_create(texture_format, RDTextureView.new());
-		texture_format.width = render_size.x / 16;
-		texture_format.height = render_size.y / 16;
+		texture_format.width = ceil(render_size.x / 16.0);
+		texture_format.height = ceil(render_size.y / 16.0);
+		print(texture_format.width, " ", texture_format.height);
 		sixteenth_texture = rd.texture_create(texture_format, RDTextureView.new());
 		
 	
@@ -185,11 +191,18 @@ func unseparated_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var y_groups : int = int(float(render_size.y - 1) / 8 + 1);
 	var z_groups : int = 1;
 	
-	var push_constant : PackedInt32Array = PackedInt32Array();
-	push_constant.push_back(render_size.x);
-	push_constant.push_back(render_size.y);
-	push_constant.push_back(kernel_size);
-	push_constant.push_back(0);
+	var blit_push : PackedInt32Array = PackedInt32Array();
+	blit_push.push_back(render_size.x);
+	blit_push.push_back(render_size.y);
+	blit_push.push_back(kernel_size);
+	blit_push.push_back(0);
+	
+	var push_constant : PackedByteArray = PackedByteArray();
+	push_constant.append_array(PackedInt32Array([render_size.x]).to_byte_array())
+	push_constant.append_array(PackedInt32Array([render_size.y]).to_byte_array())
+	push_constant.append_array(PackedInt32Array([kernel_size]).to_byte_array())
+	push_constant.append_array(PackedFloat32Array([e_amplitude]).to_byte_array())
+	push_constant.append_array(PackedFloat32Array([std_deviation]).to_byte_array())
 	
 	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
 	
@@ -220,12 +233,12 @@ func unseparated_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var compute_list := rd.compute_list_begin();
 	rd.compute_list_bind_compute_pipeline(compute_list, unseparated_blur_pipeline);
 	rd.compute_list_bind_uniform_set(compute_list, blur_uniform_set, 0);
-	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+	rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 	rd.compute_list_add_barrier(compute_list);
 	rd.compute_list_bind_compute_pipeline(compute_list, blit_pipeline);
 	rd.compute_list_bind_uniform_set(compute_list, blit_uniform_set, 0);
-	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
+	rd.compute_list_set_push_constant(compute_list, blit_push.to_byte_array(), blit_push.size() * 4);
 	rd.compute_list_dispatch(compute_list, x_groups, y_groups, z_groups);
 	rd.compute_list_end();
 
@@ -415,10 +428,10 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
 	
 	var full_groups : Vector2i = texture_size_to_thread_groups(render_size, 8);
-	var half_groups : Vector2i = texture_size_to_thread_groups(render_size / 2, 8);
-	var quarter_groups : Vector2i = texture_size_to_thread_groups(render_size / 4, 8);
-	var eighth_groups : Vector2i = texture_size_to_thread_groups(render_size / 8, 8);
-	var sixteenth_groups : Vector2i = texture_size_to_thread_groups(render_size / 16, 8);
+	var half_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 2.0), 8);
+	var quarter_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 4.0), 8);
+	var eighth_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 8.0), 8);
+	var sixteenth_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 16.0), 8);
 	
 	
 	var push_constant : PackedInt32Array = PackedInt32Array();
@@ -499,8 +512,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 		# Full Resolution -> Half Resolution
 		rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
 		rd.compute_list_bind_uniform_set(compute_list, full_to_half_set, 0);
-		push_constant[0] = render_size.x / 2;
-		push_constant[1] = render_size.y / 2;
+		push_constant[0] = ceil(render_size.x / 2.0);
+		push_constant[1] = ceil(render_size.y / 2.0);
 		rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 		rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
 		rd.compute_list_add_barrier(compute_list);
@@ -509,8 +522,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Half Resolution -> Quarter Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
-			push_constant[0] = render_size.x / 4;
-			push_constant[1] = render_size.y / 4;
+			push_constant[0] = ceil(render_size.x / 4.0);
+			push_constant[1] = ceil(render_size.y / 4.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -519,8 +532,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Quarter Resolution -> Eighth Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
-			push_constant[0] = render_size.x / 8;
-			push_constant[1] = render_size.y / 8;
+			push_constant[0] = ceil(render_size.x / 8.0);
+			push_constant[1] = ceil(render_size.y / 8.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -529,8 +542,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Eighth Resolution -> Sixteenth Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, downscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
-			push_constant[0] = render_size.x / 16;
-			push_constant[1] = render_size.y / 16;
+			push_constant[0] = ceil(render_size.x / 16.0);
+			push_constant[1] = ceil(render_size.y / 16.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -538,8 +551,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Sixteenth Resolution -> Eighth Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
-			push_constant[0] = render_size.x / 8;
-			push_constant[1] = render_size.y / 8;
+			push_constant[0] = ceil(render_size.x / 8.0);
+			push_constant[1] = ceil(render_size.y / 8.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -548,8 +561,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Eighth Resolution -> Quarter Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
-			push_constant[0] = render_size.x / 4;
-			push_constant[1] = render_size.y / 4;
+			push_constant[0] = ceil(render_size.x / 4.0);
+			push_constant[1] = ceil(render_size.y / 4.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -558,8 +571,8 @@ func downscale_upscale_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void
 			# Quarter Resolution -> Half Resolution
 			rd.compute_list_bind_compute_pipeline(compute_list, upscale_blur_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
-			push_constant[0] = render_size.x / 2;
-			push_constant[1] = render_size.y / 2;
+			push_constant[0] = ceil(render_size.x / 2.0);
+			push_constant[1] = ceil(render_size.y / 2.0);
 			rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4);
 			rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
 			rd.compute_list_add_barrier(compute_list);
@@ -581,10 +594,10 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var render_size : Vector2i = _render_scene_buffers.get_internal_size();
 	
 	var full_groups : Vector2i = texture_size_to_thread_groups(render_size, 8);
-	var half_groups : Vector2i = texture_size_to_thread_groups(render_size / 2, 8);
-	var quarter_groups : Vector2i = texture_size_to_thread_groups(render_size / 4, 8);
-	var eighth_groups : Vector2i = texture_size_to_thread_groups(render_size / 8, 8);
-	var sixteenth_groups : Vector2i = texture_size_to_thread_groups(render_size / 16, 8);
+	var half_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 2.0), 8);
+	var quarter_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 4.0), 8);
+	var eighth_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 8.0), 8);
+	var sixteenth_groups : Vector2i = texture_size_to_thread_groups(ceil(render_size / 16.0), 8);
 	
 	
 	var push_constant : PackedByteArray = PackedByteArray();
@@ -666,7 +679,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 		rd.compute_list_bind_uniform_set(compute_list, full_to_half_set, 0);
 		
 		push_constant.clear();
-		push_constant.append_array(PackedInt32Array([render_size.x / 2, render_size.y / 2]).to_byte_array())
+		push_constant.append_array(PackedInt32Array([ceil(render_size.x / 2.0), ceil(render_size.y / 2.0)]).to_byte_array())
 		push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 		
 		rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
@@ -678,7 +691,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, half_to_quarter_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 4, render_size.y / 4]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 4.0), ceil(render_size.y / 4.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
@@ -689,7 +702,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, quarter_to_eighth_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 8, render_size.y / 8]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 8.0), ceil(render_size.y / 8.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
@@ -700,7 +713,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_down_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, eighth_to_sixteenth_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 16, render_size.y / 16]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 16.0), ceil(render_size.y / 16.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, sixteenth_groups.x, sixteenth_groups.y, 1);
@@ -710,7 +723,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, sixteenth_to_eighth_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 8, render_size.y / 8]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 8.0), ceil(render_size.y / 8.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, eighth_groups.x, eighth_groups.y, 1);
@@ -721,7 +734,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, eighth_to_quarter_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 4, render_size.y / 4]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 4.0), ceil(render_size.y / 4.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, quarter_groups.x, quarter_groups.y, 1);
@@ -732,7 +745,7 @@ func dual_kawase_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 			rd.compute_list_bind_compute_pipeline(compute_list, dual_kawase_blur_up_pipeline);
 			rd.compute_list_bind_uniform_set(compute_list, quarter_to_half_set, 0);
 			push_constant.clear();
-			push_constant.append_array(PackedInt32Array([render_size.x / 2, render_size.y / 2]).to_byte_array())
+			push_constant.append_array(PackedInt32Array([ceil(render_size.x / 2.0), ceil(render_size.y / 2.0)]).to_byte_array())
 			push_constant.append_array(PackedFloat32Array([std_deviation, 0.0]).to_byte_array())
 			rd.compute_list_set_push_constant(compute_list, push_constant, push_constant.size());
 			rd.compute_list_dispatch(compute_list, half_groups.x, half_groups.y, 1);
@@ -768,8 +781,9 @@ func circle_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
 	
 	var color_buffer_uniform : RDUniform = RDUniform.new();
-	color_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE;
+	color_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
 	color_buffer_uniform.binding = 0;
+	color_buffer_uniform.add_id(linear_sampler);
 	color_buffer_uniform.add_id(color_buffer);
 	
 	var pong_buffer_uniform : RDUniform = RDUniform.new();
@@ -1279,7 +1293,8 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
 	int kernel_size;
-	int reserved;
+	float amplitude;
+	float frequency;
 } params;
 
 // The code we want to execute in each invocation
@@ -1297,8 +1312,22 @@ void main() {
 
 	int kernel_size = params.kernel_size;
 	
-	int samples = 1;
-	vec4 color_sum = color;
+	float PI = 3.14159265359;
+	//float sigma = params.std_deviation;
+	float sigma = 1.0;
+	float sigma_squared = sigma * sigma;
+	
+	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	vec4 color_sum = color * total_weight;
+	
+	// BOX BLUR
+	//total_weight = 1.0;
+	//color_sum = color;
+	
+	// GENERAL GAUSSIAN
+	total_weight = 1.0;
+	color_sum = color * total_weight;
+	
 	for (int x = -kernel_size; x <= kernel_size; ++x) {
 		for (int y = -kernel_size; y <= kernel_size; ++y) {
 			if (x == 0 && y == 0) continue;
@@ -1311,12 +1340,19 @@ void main() {
 			// DISCARD OUT OF BOUNDS
 			if (sample_pos.x < 0 || size.x <= sample_pos.x || sample_pos.y < 0 || size.y <= sample_pos.y) continue;
 			
-			color_sum += imageLoad(source_image, sample_pos);
-			samples += 1;
+			
+			// BOX BLUR
+			//color_sum += imageLoad(source_image, sample_pos);
+			//total_weight += 1.0;
+			
+			// GENERAL GAUSSIAN
+			float weight = exp(-params.amplitude * (x * x + y * y) / (2.0 * params.frequency * params.frequency));
+			color_sum += imageLoad(source_image, sample_pos) * weight;
+			total_weight += weight;
 		}
 	}
 	
-	vec4 color_output = color_sum / vec4(samples);
+	vec4 color_output = color_sum / vec4(total_weight);
 
 	imageStore(destination_image, thread_id, color_output);
 }
@@ -1765,7 +1801,7 @@ void main() {
 	// Center of pixel
 	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
 	vec2 texel_size = 1.0 / vec2(size);
-	texel_size *= params.sample_distance;
+	//texel_size *= params.sample_distance;
 	vec2 half_offset = texel_size / 2.0;
 	
 	vec4 sum = texture(source_texture, uv) * 4.0;
@@ -1810,7 +1846,7 @@ void main() {
 	// Center of pixel
 	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
 	vec2 texel_size = 1.0 / vec2(size);
-	texel_size *= params.sample_distance;
+	//texel_size *= params.sample_distance;
 	vec2 half_offset = texel_size / 2.0;
 	
 	vec4 sum = texture(source_texture, uv + vec2(-texel_size.x, 0.0));
@@ -1836,7 +1872,7 @@ func circle_blur_shader_code() -> String:
 // Invocations in the (x, y, z) dimension
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
-layout(rgba16f, set = 0, binding = 0) uniform image2D source_image;
+layout(set = 0, binding = 0) uniform sampler2D source_texture;
 layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 
 // Our push constant
@@ -1854,8 +1890,12 @@ void main() {
 	if (thread_id.x >= size.x || thread_id.y >= size.y) {
 		return;
 	}
+	
+	// Center of pixel
+	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
+	vec2 texel_size = 1.0 / vec2(size);
 
-	vec4 color = imageLoad(source_image, thread_id);
+	vec4 color = texture(source_texture, uv);
 
 	int radius = params.radius;
 	int radius_squared = radius * radius;
@@ -1877,7 +1917,7 @@ void main() {
 			// DISCARD OUT OF BOUNDS
 			if (sample_pos.x < 0 || size.x <= sample_pos.x || sample_pos.y < 0 || size.y <= sample_pos.y) continue;
 			
-			color_sum += imageLoad(source_image, sample_pos);
+			color_sum += texture(source_texture, uv + vec2(x, y) * texel_size);
 			samples += 1;
 		}
 	}
