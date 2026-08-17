@@ -2,6 +2,8 @@
 extends CompositorEffect
 class_name AcerolaFX_Blur
 
+@export var comment : String = "";
+
 @export var enable : bool = true;
 enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE, CIRCLE};
 @export var blur_type : BlurType = BlurType.BOX;
@@ -201,7 +203,6 @@ func unseparated_blur(_render_scene_buffers: RenderSceneBuffersRD) -> void:
 	push_constant.append_array(PackedInt32Array([render_size.x]).to_byte_array())
 	push_constant.append_array(PackedInt32Array([render_size.y]).to_byte_array())
 	push_constant.append_array(PackedInt32Array([kernel_size]).to_byte_array())
-	push_constant.append_array(PackedFloat32Array([e_amplitude]).to_byte_array())
 	push_constant.append_array(PackedFloat32Array([std_deviation]).to_byte_array())
 	
 	var color_buffer : RID = _render_scene_buffers.get_color_layer(0);
@@ -1293,8 +1294,7 @@ layout(rgba16f, set = 0, binding = 1) uniform image2D destination_image;
 layout(push_constant, std430) uniform Params {
 	ivec2 raster_size;
 	int kernel_size;
-	float amplitude;
-	float frequency;
+	float std_deviation;
 } params;
 
 // The code we want to execute in each invocation
@@ -1313,11 +1313,11 @@ void main() {
 	int kernel_size = params.kernel_size;
 	
 	float PI = 3.14159265359;
-	//float sigma = params.std_deviation;
-	float sigma = 1.0;
-	float sigma_squared = sigma * sigma;
+	float sigma = params.std_deviation;
+	float two_sigma_squared = sigma * sigma;
+	float gaussian_denominator = sqrt(PI * two_sigma_squared);
 	
-	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	float total_weight = 1.0 / gaussian_denominator;
 	vec4 color_sum = color * total_weight;
 	
 	// BOX BLUR
@@ -1325,8 +1325,8 @@ void main() {
 	//color_sum = color;
 	
 	// GENERAL GAUSSIAN
-	total_weight = 1.0;
-	color_sum = color * total_weight;
+	//total_weight = 1.0;
+	//color_sum = color * total_weight;
 	
 	for (int x = -kernel_size; x <= kernel_size; ++x) {
 		for (int y = -kernel_size; y <= kernel_size; ++y) {
@@ -1346,9 +1346,16 @@ void main() {
 			//total_weight += 1.0;
 			
 			// GENERAL GAUSSIAN
-			float weight = exp(-params.amplitude * (x * x + y * y) / (2.0 * params.frequency * params.frequency));
-			color_sum += imageLoad(source_image, sample_pos) * weight;
-			total_weight += weight;
+			//float weight = exp(-params.amplitude * (x * x + y * y) / (2.0 * params.frequency * params.frequency));
+			//color_sum += imageLoad(source_image, sample_pos) * weight;
+			//total_weight += weight;
+			
+			float distance_squared = x * x + y * y;
+			float gaussian_numerator = exp(-distance_squared / two_sigma_squared);
+			float gaussian = gaussian_numerator / gaussian_denominator;
+			
+			color_sum += imageLoad(source_image, sample_pos) * gaussian;
+			total_weight += gaussian;
 		}
 	}
 	

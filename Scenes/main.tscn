@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cy6w43y8cmus" path="res://Effects/Debug/acerolafx_image_blit.gd" id="1_bo1nx"]
 [ext_resource type="Script" uid="uid://bd2vai0ysxpp0" path="res://Ignored/Sponza/scripts/camera.gd" id="1_kry3j"]
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://Ignored/Scripts/wave_transformer.gd" id="2_bo1nx"]
-[ext_resource type="Texture2D" uid="uid://cfbgrs3k54qfm" path="res://Ignored/fuji-2.png" id="2_jjvhh"]
+[ext_resource type="Texture2D" uid="uid://dcerrwkm4rwgh" path="res://Ignored/fuji-1.png" id="2_jjvhh"]
 [ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
@@ -17,23 +17,8 @@ effect_callback_type = 4
 needs_motion_vectors = true
 needs_normal_roughness = true
 script = ExtResource("1_bo1nx")
-disabled = true
 source_texture = ExtResource("2_jjvhh")
 metadata/_custom_type_script = "uid://cy6w43y8cmus"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-enable = false
-blur_type = 1
-kernel_size = 36
-std_deviation = 12.0
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
 [sub_resource type="CompositorEffect" id="CompositorEffect_jjvhh"]
 resource_local_to_scene = false
@@ -43,19 +28,136 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
+comment = "Race Condition Blur"
+enable = false
+kernel_size = 20
+race_condition_blur = true
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Unseparated Box"
+enable = false
+blur_type = 1
+kernel_size = 36
+std_deviation = 12.0
+unseparated_box_blur = true
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_21xkr"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Separated Gaussian"
+enable = false
+blur_type = 1
+kernel_size = 20
+std_deviation = 7.0
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_6bp64"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Kawase Blur"
+enable = false
+blur_type = 2
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_344ge"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Down/Up Blur"
+enable = false
 blur_type = 3
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
+[sub_resource type="CompositorEffect" id="CompositorEffect_ynf5e"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Dual Kawase"
+enable = false
+blur_type = 4
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_hptm8"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Unseparated = to DK"
+enable = false
+kernel_size = 36
+std_deviation = 12.0
+unseparated_box_blur = true
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_d1ilt"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Gaussian Equal To DK"
+enable = false
+blur_type = 1
+kernel_size = 36
+std_deviation = 12.0
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_6iyac"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("3_kry3j")
+comment = "Unseparated Circle"
+enable = false
+blur_type = 5
+kernel_size = 20
+metadata/_custom_type_script = "uid://c6oprrju52d6n"
+
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_kry3j"), SubResource("CompositorEffect_jjvhh")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_kry3j"), SubResource("CompositorEffect_21xkr"), SubResource("CompositorEffect_6bp64"), SubResource("CompositorEffect_344ge"), SubResource("CompositorEffect_ynf5e"), SubResource("CompositorEffect_hptm8"), SubResource("CompositorEffect_d1ilt"), SubResource("CompositorEffect_6iyac")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_21xkr"]
 shading_mode = 0
 
 [sub_resource type="SphereMesh" id="SphereMesh_kry3j"]
 material = SubResource("StandardMaterial3D_21xkr")
-radius = 0.025
-height = 0.05
+radius = 0.007
+height = 0.013
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jjvhh"]
 shading_mode = 0
@@ -80,6 +182,7 @@ transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479
 
 [node name="Ball" type="MeshInstance3D" parent="." unique_id=181125635]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 0.25
@@ -89,6 +192,7 @@ y_amplitude = 1.5
 
 [node name="Ball4" type="MeshInstance3D" parent="." unique_id=1623210737]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 0.5
@@ -98,6 +202,7 @@ phase = -2.0
 
 [node name="Ball5" type="MeshInstance3D" parent="." unique_id=677373293]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_amplitude = 2.0
@@ -107,6 +212,7 @@ phase = -1.2
 
 [node name="Ball6" type="MeshInstance3D" parent="." unique_id=192011855]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 1.5
@@ -115,6 +221,7 @@ phase = 2.1
 
 [node name="Ball7" type="MeshInstance3D" parent="." unique_id=1606089582]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_amplitude = 2.0
@@ -123,6 +230,7 @@ phase = 1.34
 
 [node name="Ball8" type="MeshInstance3D" parent="." unique_id=952718278]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 1.25
@@ -132,6 +240,7 @@ phase = 5.0
 
 [node name="Ball9" type="MeshInstance3D" parent="." unique_id=1066668134]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 0.25
@@ -142,6 +251,7 @@ phase = 5.0
 
 [node name="Ball10" type="MeshInstance3D" parent="." unique_id=1884393389]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 2)
+visible = false
 mesh = SubResource("SphereMesh_kry3j")
 script = ExtResource("2_bo1nx")
 x_frequency = 1.25
