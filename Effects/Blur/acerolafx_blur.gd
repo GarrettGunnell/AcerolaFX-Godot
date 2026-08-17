@@ -1510,9 +1510,10 @@ void main() {
 	
 	float PI = 3.14159265359;
 	float sigma = params.std_deviation;
-	float sigma_squared = sigma * sigma;
+	float two_sigma_squared = 2.0 * sigma * sigma;
+	float gaussian_denominator = sqrt(PI * two_sigma_squared);
 	
-	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	float total_weight = 1.0 / gaussian_denominator;
 	vec4 color_sum = color * total_weight;
 	
 	for (int x = -kernel_size; x <= kernel_size; ++x) {
@@ -1527,8 +1528,7 @@ void main() {
 		if (sample_pos.x < 0 || size.x <= sample_pos.x) continue;
 		
 		float distance_squared = x * x;
-		float gaussian_numerator = exp(-distance_squared / (2.0 * sigma_squared));
-		float gaussian_denominator = sqrt(2.0 * PI * sigma_squared);
+		float gaussian_numerator = exp(-distance_squared / (two_sigma_squared));
 		float gaussian = gaussian_numerator / gaussian_denominator;
 		
 		color_sum += imageLoad(source_image, sample_pos) * gaussian;
@@ -1575,9 +1575,10 @@ void main() {
 	
 	float PI = 3.14159265359;
 	float sigma = params.std_deviation;
-	float sigma_squared = sigma * sigma;
+	float two_sigma_squared = 2.0 * sigma * sigma;
+	float gaussian_denominator = sqrt(PI * two_sigma_squared);
 	
-	float total_weight = 1.0 / sqrt(2.0 * PI * sigma_squared);
+	float total_weight = 1.0 / gaussian_denominator;
 	vec4 color_sum = color * total_weight;
 	
 	for (int y = -kernel_size; y <= kernel_size; ++y) {
@@ -1592,8 +1593,7 @@ void main() {
 		if (sample_pos.y < 0 || size.y <= sample_pos.y) continue;
 		
 		float distance_squared = y * y;
-		float gaussian_numerator = exp(-distance_squared / (2.0 * sigma_squared));
-		float gaussian_denominator = sqrt(2.0 * PI * sigma_squared);
+		float gaussian_numerator = exp(-distance_squared / (two_sigma_squared));
 		float gaussian = gaussian_numerator / gaussian_denominator;
 		
 		color_sum += imageLoad(destination_image, sample_pos) * gaussian;
