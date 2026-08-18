@@ -11,16 +11,27 @@ I'll make a video when the scripts are usable in production but that'll probably
 # Examples
 
 ## [Image Blurs](/Effects/Blur/)
-![box_blur](./Examples/box_blur.png)
 
 ### Box Blur
 
+![box_blur](./Examples/box_blur.png)
+
 ### Gaussian Blur
+
+![gaussian_blur](./Examples/gaussian_blur.png)
 
 ### Kawase Blur
 
+![kawase_blur](./Examples/kawase_blur.png)
+
 ### Upsample Blur
+
+![upsample_blur](./Examples/upsample_blur.png)
 
 ### Dual Kawase Blur
 
+![dual_kawase_blur](./Examples/dual_kawase_blur.png)
+
 ### Unseparated Circle Blur
+
+![circle_blur](./Examples/circle_blur.png)
