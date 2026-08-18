@@ -16,8 +16,8 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 [display]
 
-window/size/viewport_width=3840
-window/size/viewport_height=2160
+window/size/viewport_width=512
+window/size/viewport_height=512
 window/size/resizable=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
