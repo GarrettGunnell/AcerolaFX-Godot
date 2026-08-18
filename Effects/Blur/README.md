@@ -4,7 +4,7 @@ This script is maximally verbose and very ugly with all of the shader code writt
 
 # Image Blurs
 
-This script contains implementations of the following blurs:
+This script contains game ready implementations of the following blur shaders:
 
 * Separated Box Blur
 * Separated Gaussian Blur
@@ -14,7 +14,7 @@ This script contains implementations of the following blurs:
 
 </br>
 
-There are also three experimental blurs that are **not to be used** in a game ever:
+There are also three experimental blur shaders that are **not to be used** in a game ever:
 * Unseparated Race Condition Box Blur
 * Unseparated Gaussian Blur
 * Unseparated Circle Blur
