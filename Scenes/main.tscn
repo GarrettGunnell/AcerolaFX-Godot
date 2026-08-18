@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://Ignored/Scripts/wave_transformer.gd" id="2_bo1nx"]
 [ext_resource type="Texture2D" uid="uid://dcerrwkm4rwgh" path="res://Ignored/fuji-1.png" id="2_jjvhh"]
 [ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
-[ext_resource type="Script" uid="uid://b4wfg5ec28os2" path="res://Scenes/screenshotter.gd" id="5_21xkr"]
+[ext_resource type="Script" uid="uid://b4wfg5ec28os2" path="res://Helpful Tools/screenshotter.gd" id="5_21xkr"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
 background_mode = 1
@@ -128,7 +128,6 @@ needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
 comment = "Gaussian Equal To DK"
-enable = false
 blur_type = 1
 kernel_size = 36
 std_deviation = 12.0

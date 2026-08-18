@@ -29,6 +29,7 @@ folder_colors={
 "res://Effects/Blur/": "gray",
 "res://Effects/Debug/": "gray",
 "res://Effects/Motion Blur/": "gray",
+"res://Helpful Tools/": "blue",
 "res://Ignored/": "pink",
 "res://Ignored/Scripts/": "purple",
 "res://Ignored/Sponza/": "green"
