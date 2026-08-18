@@ -8,5 +8,18 @@ AcerolaFX is a suite of shaders for the Godot game engine. More specifically, Ac
 
 I'll make a video when the scripts are usable in production but that'll probably be awhile as right now I'm just having fun playing with toys.
 
-## Examples
+# Examples
 
+## [Image Blurs](/Effects/Blur/)
+
+### Box Blur
+
+### Gaussian Blur
+
+### Kawase Blur
+
+### Upsample Blur
+
+### Dual Kawase Blur
+
+### Unseparated Circle Blur
