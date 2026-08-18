@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://ls5sr2nlnhgx" path="res://Ignored/Scripts/wave_transformer.gd" id="2_bo1nx"]
 [ext_resource type="Texture2D" uid="uid://dcerrwkm4rwgh" path="res://Ignored/fuji-1.png" id="2_jjvhh"]
 [ext_resource type="Script" uid="uid://c6oprrju52d6n" path="res://Effects/Blur/acerolafx_blur.gd" id="3_kry3j"]
+[ext_resource type="Script" uid="uid://b4wfg5ec28os2" path="res://Scenes/screenshotter.gd" id="5_21xkr"]
 
 [sub_resource type="Environment" id="Environment_duk7s"]
 background_mode = 1
@@ -59,6 +60,7 @@ needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
 comment = "Separated Gaussian"
+enable = false
 blur_type = 1
 kernel_size = 20
 std_deviation = 7.0
@@ -99,7 +101,6 @@ needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
 comment = "Dual Kawase"
-enable = false
 blur_type = 4
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
@@ -175,6 +176,7 @@ script = ExtResource("1_kry3j")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1821228915]
 environment = SubResource("Environment_duk7s")
 compositor = SubResource("Compositor_buhqs")
+script = ExtResource("5_21xkr")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=184254226]
 transform = Transform3D(0.5083656, 0.7441026, -0.4334463, -0.44139317, 0.6573479, 0.610791, 0.7394161, -0.119184986, 0.6626149, 0, 1.2054999, 0)
