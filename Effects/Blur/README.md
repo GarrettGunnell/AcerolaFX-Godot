@@ -14,9 +14,10 @@ This script contains implementations of the following blurs:
 
 </br>
 
-There are also two experimental blurs that are **not to be used**:
+There are also three experimental blurs that are **not to be used** in a game ever:
 * Unseparated Race Condition Box Blur
 * Unseparated Gaussian Blur
+* Unseparated Circle Blur
 
 ## Sources
 
