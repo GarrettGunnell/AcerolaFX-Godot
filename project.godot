@@ -13,7 +13,6 @@ config_version=5
 config/name="AcerolaFX"
 run/main_scene="uid://duahqx2n475yj"
 config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://icon.svg"
 
 [display]
 
