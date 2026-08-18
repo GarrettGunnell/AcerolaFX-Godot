@@ -11,6 +11,7 @@ I'll make a video when the scripts are usable in production but that'll probably
 # Examples
 
 ## [Image Blurs](/Effects/Blur/)
+![box_blur](./Examples/box_blur.png)
 
 ### Box Blur
 
