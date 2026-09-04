@@ -2,7 +2,7 @@
 extends CompositorEffect
 class_name AcerolaFX_ImageBlit
 
-@export var disabled : bool = false;
+@export var enable : bool = true;
 @export var source_texture : Texture2D;
 @export var nearest_neighbor : bool = false;
 @export var zoom : float = 1.0;
@@ -18,6 +18,7 @@ var linear_sampler : RID;
 @export_tool_button("Recompile", "Callable") var recompile_action = compile_shader;
 
 func _init():
+	enabled = true;
 	effect_callback_type = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT;
 	needs_motion_vectors = true;
 	needs_normal_roughness = true;
@@ -38,9 +39,7 @@ func _init():
 
 
 func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
-	if disabled: return;
-	if not rd: return;
-	if not pipeline.is_valid(): return;
+	if not enable or not rd or not pipeline.is_valid(): return;
 	
 	var render_scene_buffers: RenderSceneBuffersRD = render_data.get_render_scene_buffers();
 	if not render_scene_buffers: return;
