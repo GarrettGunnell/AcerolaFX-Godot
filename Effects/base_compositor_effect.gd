@@ -3,7 +3,7 @@ extends CompositorEffect
 class_name BaseCompositorEffect
 
 
-@export var disabled : bool = false;
+@export var enable : bool = true;
 
 var rd : RenderingDevice;
 var shader : RID;
@@ -35,10 +35,7 @@ func _init():
 
 
 func _render_callback(_effect_callback_type: int, render_data: RenderData) -> void:
-	if disabled: return;
-	
-	if not rd: return;
-	if not pipeline.is_valid(): return;
+	if not enable or not rd or not pipeline.is_valid(): return;
 	
 	var render_scene_buffers: RenderSceneBuffersRD = render_data.get_render_scene_buffers();
 	if not render_scene_buffers: return;
