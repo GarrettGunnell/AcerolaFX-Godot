@@ -2,7 +2,7 @@
 extends CompositorEffect
 class_name AcerolaFX_Blur
 
-@export var comment : String = "";
+#@export var comment : String = "";
 
 @export var enable : bool = true;
 enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE, CIRCLE};
@@ -13,11 +13,11 @@ enum BlurType {BOX, GAUSSIAN, KAWASE, DOWNSCALE_UPSCALE, DUAL_KAWASE, CIRCLE};
 enum DownsampleLimit {SIXTEENTH, EIGHTH, QUARTER, HALF};
 @export var downsample_limit : DownsampleLimit = DownsampleLimit.SIXTEENTH;
 
-@export_group("Experimental")
-@export var race_condition_blur : bool = false;
-@export var unseparated_box_blur : bool = false;
-@export var e_amplitude : float = 1.0;
-@export_group("")
+#@export_group("Experimental")
+var race_condition_blur : bool = false;
+var unseparated_box_blur : bool = false;
+var e_amplitude : float = 1.0;
+#@export_group("")
 
 var rd : RenderingDevice;
 
@@ -1808,7 +1808,7 @@ void main() {
 	// Center of pixel
 	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
 	vec2 texel_size = 1.0 / vec2(size);
-	//texel_size *= params.sample_distance;
+	texel_size *= params.sample_distance;
 	vec2 half_offset = texel_size / 2.0;
 	
 	vec4 sum = texture(source_texture, uv) * 4.0;
@@ -1853,7 +1853,7 @@ void main() {
 	// Center of pixel
 	vec2 uv = (vec2(thread_id) + 0.5) / vec2(size);
 	vec2 texel_size = 1.0 / vec2(size);
-	//texel_size *= params.sample_distance;
+	texel_size *= params.sample_distance;
 	vec2 half_offset = texel_size / 2.0;
 	
 	vec4 sum = texture(source_texture, uv + vec2(-texel_size.x, 0.0));

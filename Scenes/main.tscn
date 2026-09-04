@@ -9,6 +9,7 @@
 
 [sub_resource type="Environment" id="Environment_duk7s"]
 background_mode = 1
+adjustment_enabled = true
 
 [sub_resource type="CompositorEffect" id="CompositorEffect_bo1nx"]
 resource_local_to_scene = false
@@ -29,128 +30,13 @@ effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("3_kry3j")
-comment = "Race Condition Blur"
 enable = false
-kernel_size = 20
-race_condition_blur = true
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_kry3j"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Unseparated Box"
-enable = false
-blur_type = 1
-kernel_size = 20
-std_deviation = 1000000.0
-unseparated_box_blur = true
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_21xkr"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Separated Gaussian"
-enable = false
-blur_type = 1
 kernel_size = 20
 std_deviation = 7.0
 metadata/_custom_type_script = "uid://c6oprrju52d6n"
 
-[sub_resource type="CompositorEffect" id="CompositorEffect_6bp64"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Kawase Blur"
-enable = false
-blur_type = 2
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_344ge"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Down/Up Blur"
-enable = false
-blur_type = 3
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_ynf5e"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Dual Kawase"
-enable = false
-blur_type = 4
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_hptm8"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Unseparated = to DK"
-enable = false
-kernel_size = 36
-std_deviation = 12.0
-unseparated_box_blur = true
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_d1ilt"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Gaussian Equal To DK"
-enable = false
-blur_type = 1
-kernel_size = 36
-std_deviation = 12.0
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
-[sub_resource type="CompositorEffect" id="CompositorEffect_6iyac"]
-resource_local_to_scene = false
-resource_name = ""
-enabled = true
-effect_callback_type = 4
-needs_motion_vectors = false
-needs_normal_roughness = false
-script = ExtResource("3_kry3j")
-comment = "Unseparated Circle"
-enable = false
-blur_type = 5
-kernel_size = 20
-metadata/_custom_type_script = "uid://c6oprrju52d6n"
-
 [sub_resource type="Compositor" id="Compositor_buhqs"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh"), SubResource("CompositorEffect_kry3j"), SubResource("CompositorEffect_21xkr"), SubResource("CompositorEffect_6bp64"), SubResource("CompositorEffect_344ge"), SubResource("CompositorEffect_ynf5e"), SubResource("CompositorEffect_hptm8"), SubResource("CompositorEffect_d1ilt"), SubResource("CompositorEffect_6iyac")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_bo1nx"), SubResource("CompositorEffect_jjvhh")])
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_21xkr"]
 shading_mode = 0
